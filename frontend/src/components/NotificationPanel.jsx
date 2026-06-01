@@ -3,12 +3,14 @@ import { useSocket } from '../context/SocketContext';
 import api from '../utils/api';
 import { formatDistanceToNow } from 'date-fns';
 import { X, Heart, MessageCircle, Tag, Upload } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const iconMap = { like: Heart, comment: MessageCircle, tag: Tag, upload: Upload };
 
 export default function NotificationPanel({ onClose }) {
   const [notifs, setNotifs] = useState([]);
   const { notifications, markAllRead } = useSocket();
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get('/notifications').then(res => {
@@ -20,6 +22,15 @@ export default function NotificationPanel({ onClose }) {
 
   // Merge real-time notifs with fetched
   const all = [...notifications, ...notifs].filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i);
+
+  const handleNotificationClick = (n) => {
+    if (n.media_id) {
+      navigate(`/media/${n.media_id}`);
+    } else if (n.event_id) {
+      navigate(`/events/${n.event_id}`);
+    }
+    onClose(); 
+  };
 
   return (
     <div className="absolute right-0 top-12 w-80 card shadow-2xl z-50 overflow-hidden">
@@ -33,7 +44,11 @@ export default function NotificationPanel({ onClose }) {
         ) : all.map(n => {
           const Icon = iconMap[n.type] || Upload;
           return (
-            <div key={n.id} className={`flex items-start gap-3 p-4 border-b border-dark-700 hover:bg-dark-700 transition-all ${!n.is_read ? 'bg-primary-600/5' : ''}`}>
+            <div 
+              key={n.id} 
+              onClick={() => handleNotificationClick(n)}
+              className={`flex items-start gap-3 p-4 border-b border-dark-700 hover:bg-dark-700 transition-all cursor-pointer ${!n.is_read ? 'bg-primary-600/5' : ''}`}
+            >
               <div className="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center flex-shrink-0">
                 <Icon size={14} className="text-primary-400" />
               </div>
