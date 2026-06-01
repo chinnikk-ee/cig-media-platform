@@ -12,15 +12,12 @@ async function getFaceApi() {
   if (faceapi && faceModelsLoaded) return faceapi;
 
   try {
-    // face-api.js needs a canvas implementation in Node
     const canvas = require('canvas');
     const fa = require('face-api.js');
 
-    // Patch face-api to use the node-canvas implementation
     const { Canvas, Image, ImageData } = canvas;
     fa.env.monkeyPatch({ Canvas, Image, ImageData });
 
-    // Models live in backend/models/  (downloaded by setup script below)
     const MODELS_PATH = path.join(__dirname, '../../models');
     await fa.nets.ssdMobilenetv1.loadFromDisk(MODELS_PATH);
     await fa.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH);
@@ -32,7 +29,6 @@ async function getFaceApi() {
     return faceapi;
   } catch (err) {
     console.warn('⚠️  face-api.js not available:', err.message);
-    console.warn('   Run: npm install face-api.js canvas && node scripts/download-models.js');
     return null;
   }
 }
@@ -52,12 +48,17 @@ const uploadMedia = async (req, res) => {
     const uploadedMedia = [];
 
     for (const file of req.files) {
+      // Upload to Cloudinary — request auto-tagging at upload time (free, built-in)
       const uploadResult = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
             folder: `cig-platform/${event_id}`,
             resource_type: 'auto',
             transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+            // Cloudinary's built-in AI tagging — uses Google/AWS AI under the hood.
+            // Enabled free on paid plans; on free plans tags array will just be empty.
+            categorization: 'google_tagging',
+            auto_tagging: 0.7, // confidence threshold 0–1
           },
           (error, result) => {
             if (error) reject(error);
@@ -67,13 +68,15 @@ const uploadMedia = async (req, res) => {
         uploadStream.end(file.buffer);
       });
 
-      // AI tagging — images only, via Clarifai (free tier)
+      // Extract tags from Cloudinary response (works if auto_tagging is enabled on your plan)
+      // Falls back to empty array gracefully if not available
       let ai_tags = [];
       if (uploadResult.resource_type === 'image') {
-        try {
-          ai_tags = await getClarifaiTags(uploadResult.secure_url);
-        } catch (err) {
-          console.warn('Clarifai tagging failed:', err.message);
+        if (Array.isArray(uploadResult.tags) && uploadResult.tags.length > 0) {
+          ai_tags = uploadResult.tags.slice(0, 10);
+        } else {
+          // Fallback: extract meaningful words from the filename as basic tags
+          ai_tags = getFilenameTags(file.originalname);
         }
       }
 
@@ -102,7 +105,6 @@ const uploadMedia = async (req, res) => {
       if (dbError) throw dbError;
       uploadedMedia.push(media);
 
-      // Run face matching against all users who have selfies (non-blocking)
       if (uploadResult.resource_type === 'image') {
         runFaceMatchForNewMedia(media, file.buffer).catch(err =>
           console.warn('Face match on upload failed:', err.message)
@@ -125,6 +127,17 @@ const uploadMedia = async (req, res) => {
     console.error('Upload error:', err);
     res.status(500).json({ success: false, message: 'Upload failed' });
   }
+};
+
+// ─── HELPER: Extract tags from filename as a fallback ────────
+// e.g. "birthday_party_2024.jpg" → ["birthday", "party", "2024"]
+const getFilenameTags = (filename) => {
+  const stopWords = new Set(['img', 'image', 'photo', 'pic', 'dsc', 'jpg', 'png', 'jpeg', 'webp', 'copy']);
+  return path.basename(filename, path.extname(filename))
+    .toLowerCase()
+    .split(/[\s_\-.()\[\]]+/)
+    .filter(w => w.length > 2 && !stopWords.has(w) && isNaN(w))
+    .slice(0, 5);
 };
 
 // ─── GET SINGLE MEDIA ────────────────────────────────────────
@@ -255,9 +268,7 @@ const uploadSelfie = async (req, res) => {
       .update({ selfie_url: uploadResult.secure_url, updated_at: new Date().toISOString() })
       .eq('id', req.user.id);
 
-    // Run face matching against all existing images (non-blocking)
-    // Pass the buffer directly so we don't need to re-download the selfie
-    runFaceMatchForUser(req.user.id, req.file.buffer, uploadResult.secure_url).catch(err =>
+    runFaceMatchForUser(req.user.id, req.file.buffer).catch(err =>
       console.warn('Face match scan failed:', err.message)
     );
 
@@ -288,59 +299,13 @@ const getMyPhotos = async (req, res) => {
   }
 };
 
-// ─── HELPER: Clarifai AI Tagging (free, replaces Imagga tagging) ─────────────
-// Sign up at https://clarifai.com → grab a Personal Access Token (PAT)
-// Add to .env:  CLARIFAI_PAT=your_pat_here
-// Free tier: 1,000 operations/month
-const getClarifaiTags = async (imageUrl) => {
-  const { CLARIFAI_PAT } = process.env;
-  if (!CLARIFAI_PAT) {
-    console.warn('CLARIFAI_PAT not set — skipping AI tagging. Add it to .env to enable tags.');
-    return [];
-  }
-
-  try {
-    const response = await axios.post(
-      'https://api.clarifai.com/v2/models/general-image-recognition/outputs',
-      {
-        inputs: [{ data: { image: { url: imageUrl } } }],
-      },
-      {
-        headers: {
-          Authorization: `Key ${CLARIFAI_PAT}`,
-          'Content-Type': 'application/json',
-        },
-        timeout: 15000,
-      }
-    );
-
-    const concepts = response.data?.outputs?.[0]?.data?.concepts;
-    if (!Array.isArray(concepts)) return [];
-
-    return concepts
-      .filter(c => c.value >= 0.90) // confidence ≥ 90%
-      .slice(0, 10)
-      .map(c => c.name)
-      .filter(Boolean);
-  } catch (err) {
-    if (err.response) {
-      console.error(`Clarifai error — HTTP ${err.response.status}:`, JSON.stringify(err.response.data));
-    } else {
-      console.error('Clarifai error:', err.message);
-    }
-    return [];
-  }
-};
-
-// ─── HELPER: Get face descriptor from an image buffer (local, no API) ────────
+// ─── HELPER: Get face descriptor from image buffer (local, no API) ────────────
 const getFaceDescriptor = async (imageBuffer) => {
   const fa = await getFaceApi();
   if (!fa) return null;
 
   try {
     const { createCanvas, loadImage } = require('canvas');
-
-    // Convert buffer → canvas Image
     const img = await loadImage(imageBuffer);
     const canvas = createCanvas(img.width, img.height);
     const ctx = canvas.getContext('2d');
@@ -351,16 +316,13 @@ const getFaceDescriptor = async (imageBuffer) => {
       .withFaceLandmarks()
       .withFaceDescriptor();
 
-    if (!detection) return null;
-    return detection.descriptor; // Float32Array — the face "fingerprint"
+    return detection ? detection.descriptor : null;
   } catch (err) {
     console.warn('Face descriptor extraction failed:', err.message);
     return null;
   }
 };
 
-// ─── HELPER: Euclidean distance between two face descriptors ─────────────────
-// face-api.js standard: distance < 0.6 = same person
 const faceDistance = (d1, d2) => {
   if (!d1 || !d2 || d1.length !== d2.length) return Infinity;
   let sum = 0;
@@ -368,10 +330,8 @@ const faceDistance = (d1, d2) => {
   return Math.sqrt(sum);
 };
 
-// Convert distance to a 0-100 confidence score (distance 0 = 100, distance 0.6 = 0)
 const distanceToScore = (distance) => Math.max(0, Math.round((1 - distance / 0.6) * 100));
 
-// ─── HELPER: Download image and return buffer ─────────────────────────────────
 const downloadBuffer = async (url) => {
   const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000 });
   return Buffer.from(response.data);
@@ -380,7 +340,7 @@ const downloadBuffer = async (url) => {
 // ─── FACE MATCH: when a new photo is uploaded ────────────────────────────────
 const runFaceMatchForNewMedia = async (media, imageBuffer) => {
   const fa = await getFaceApi();
-  if (!fa) return; // face-api.js not installed yet — skip silently
+  if (!fa) return;
 
   const { data: users } = await supabase
     .from('users')
@@ -389,24 +349,20 @@ const runFaceMatchForNewMedia = async (media, imageBuffer) => {
 
   if (!users || users.length === 0) return;
 
-  // Get descriptor for the newly uploaded photo
   const photoDescriptor = await getFaceDescriptor(imageBuffer);
-  if (!photoDescriptor) return; // no face in this photo
+  if (!photoDescriptor) return;
 
-  const DISTANCE_THRESHOLD = 0.55; // stricter than default 0.6 to reduce false positives
+  const DISTANCE_THRESHOLD = 0.55;
 
   for (const user of users) {
     try {
       let selfieDescriptor;
 
-      // Use cached descriptor from DB if available (avoids re-downloading selfie every time)
       if (user.face_descriptor) {
         selfieDescriptor = new Float32Array(Object.values(user.face_descriptor));
       } else {
         const selfieBuffer = await downloadBuffer(user.selfie_url);
         selfieDescriptor = await getFaceDescriptor(selfieBuffer);
-
-        // Cache it in the DB for future comparisons
         if (selfieDescriptor) {
           await supabase
             .from('users')
@@ -432,27 +388,23 @@ const runFaceMatchForNewMedia = async (media, imageBuffer) => {
 };
 
 // ─── FACE MATCH: when a user uploads their selfie ────────────────────────────
-const runFaceMatchForUser = async (userId, selfieBuffer, selfieUrl) => {
+const runFaceMatchForUser = async (userId, selfieBuffer) => {
   const fa = await getFaceApi();
   if (!fa) return;
 
-  // Clear old matches
   await supabase.from('face_matches').delete().eq('user_id', userId);
 
-  // Get descriptor for the selfie
   const selfieDescriptor = await getFaceDescriptor(selfieBuffer);
   if (!selfieDescriptor) {
     console.warn(`No face detected in selfie for user ${userId}`);
     return;
   }
 
-  // Cache descriptor in DB
   await supabase
     .from('users')
     .update({ face_descriptor: Array.from(selfieDescriptor) })
     .eq('id', userId);
 
-  // Get all images (200 most recent)
   const { data: allMedia } = await supabase
     .from('media')
     .select('id, url')
