@@ -19,7 +19,12 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'https://cig-media-platform-kappa.vercel.app',
+      'https://cig-media-platform-chinni-krishnas-projects-a2bd874e.vercel.app',
+    ],
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -27,7 +32,12 @@ const io = new Server(server, {
 
 // ─── Middleware ───────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173',
+    'https://cig-media-platform-kappa.vercel.app',
+    'https://cig-media-platform-chinni-krishnas-projects-a2bd874e.vercel.app',
+  ],
   credentials: true,
 }));
 app.use(express.json({ limit: '50mb' }));
