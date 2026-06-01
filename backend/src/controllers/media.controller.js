@@ -254,12 +254,14 @@ const getImaggaTags = async (imageUrl) => {
   if (!IMAGGA_API_KEY) return [];
 
   const response = await axios.get('https://api.imagga.com/v2/tags', {
-    params: { image_url: imageUrl, limit: 10, threshold: 30 },
+    // INCREASED: Limit to 20 to get past generic tags, Threshold to 65 for high accuracy
+    params: { image_url: imageUrl, limit: 10, threshold: 65 }, 
     auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
   });
 
   return response.data.result.tags
-    .filter(t => t.confidence > 30)
+    // REMOVED generic/useless words that AI often overuses
+    .filter(t => t.confidence >= 65 && !['person', 'human', 'people', 'clothing'].includes(t.tag.en.toLowerCase()))
     .map(t => t.tag.en);
 };
 
