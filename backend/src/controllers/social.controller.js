@@ -183,4 +183,28 @@ const shareMedia = async (req, res) => {
   }
 };
 
-module.exports = { toggleLike, addComment, deleteComment, toggleFavourite, getMyFavourites, tagUser, shareMedia };
+// ─── DELETE TAG ──────────────────────────────────────────────
+const deleteTag = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: tag } = await supabase
+      .from('media_tags')
+      .select('tagged_by, tagged_user')
+      .eq('id', id)
+      .single();
+
+    if (!tag) return res.status(404).json({ success: false, message: 'Tag not found' });
+
+    // Only the person who tagged, the tagged user, or admin can remove
+    if (tag.tagged_by !== req.user.id && tag.tagged_user !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    await supabase.from('media_tags').delete().eq('id', id);
+    res.json({ success: true, message: 'Tag removed' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to remove tag' });
+  }
+};
+
+module.exports = { toggleLike, addComment, deleteComment, toggleFavourite, getMyFavourites, tagUser, shareMedia, deleteTag };
