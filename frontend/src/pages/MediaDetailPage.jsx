@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Heart, MessageCircle, Download, Bookmark, Share2, Tag, ArrowLeft, Send, Trash2, X } from 'lucide-react';
+import { Heart, MessageCircle, Download, Bookmark, Share2, Tag, ArrowLeft, Send, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function MediaDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { joinMedia, leaveMedia } = useSocket();
   const [media, setMedia] = useState(null);
@@ -91,25 +90,6 @@ export default function MediaDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this photo?')) return;
-    try {
-      await api.delete(`/media/${id}`);
-      toast.success('Photo deleted');
-      navigate(-1);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete');
-    }
-  };
-
-  const handleUntag = async (tagId) => {
-    try {
-      await api.delete(`/social/tag/${tagId}`);
-      setMedia(m => ({ ...m, tags: m.tags.filter(t => t.id !== tagId) }));
-      toast.success('Tag removed');
-    } catch { toast.error('Failed to remove tag'); }
-  };
-
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" /></div>;
   if (!media) return <div className="text-center py-20 text-gray-500">Media not found</div>;
 
@@ -148,14 +128,6 @@ export default function MediaDetailPage() {
               </button>
               <button onClick={handleShare} className="text-gray-400 hover:text-white"><Share2 size={20} /></button>
               <button onClick={handleDownload} className="text-gray-400 hover:text-white"><Download size={20} /></button>
-              
-              {/* Delete button - only show to uploader or admin */}
-              {user && (user.id === media.uploaded_by || user.role === 'admin') && (
-                <button onClick={handleDelete}
-                  className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-all ml-2">
-                  <Trash2 size={20} /> Delete Photo
-                </button>
-              )}
             </div>
           </div>
 
@@ -189,14 +161,7 @@ export default function MediaDetailPage() {
                 <p className="text-xs text-gray-500 mb-2 flex items-center gap-1"><Tag size={12} /> Tagged</p>
                 <div className="flex flex-wrap gap-2">
                   {media.tags.map(t => (
-                    <div key={t.id} className="flex items-center gap-1 badge bg-dark-700 text-gray-300">
-                      <span>@{t.tagged_user?.username}</span>
-                      {user && (user.id === t.tagged_by || user.role === 'admin') && (
-                        <button onClick={() => handleUntag(t.id)} className="text-gray-500 hover:text-red-400 ml-1">
-                          <X size={10} />
-                        </button>
-                      )}
-                    </div>
+                    <span key={t.id} className="badge bg-dark-700 text-gray-300">@{t.tagged_user?.username}</span>
                   ))}
                 </div>
               </div>
