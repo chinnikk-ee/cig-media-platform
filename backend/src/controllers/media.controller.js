@@ -2,7 +2,6 @@ const cloudinary = require('../config/cloudinary');
 const supabase = require('../config/supabase');
 const sharp = require('sharp');
 const axios = require('axios');
-const path = require('path');
 
 // ─── UPLOAD MEDIA ────────────────────────────────────────────
 const uploadMedia = async (req, res) => {
@@ -13,14 +12,12 @@ const uploadMedia = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No files uploaded' });
     }
 
-    // Verify event exists and user has access
     const { data: event } = await supabase.from('events').select('id, is_public').eq('id', event_id).single();
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
 
     const uploadedMedia = [];
 
     for (const file of req.files) {
-      // Upload to Cloudinary
       const uploadResult = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
@@ -44,7 +41,6 @@ const uploadMedia = async (req, res) => {
         console.warn('Imagga tagging failed, skipping tags');
       }
 
-      // Save to DB
       const { data: media, error: dbError } = await supabase
         .from('media')
         .insert({
@@ -69,9 +65,15 @@ const uploadMedia = async (req, res) => {
 
       if (dbError) throw dbError;
       uploadedMedia.push(media);
+
+      // Run face matching against all users who have selfies (non-blocking)
+      if (uploadResult.resource_type === 'image') {
+        runFaceMatchForNewMedia(media).catch(err =>
+          console.warn('Face match on upload failed:', err.message)
+        );
+      }
     }
 
-    // Emit real-time notification to event subscribers
     req.io.to(`event:${event_id}`).emit('new_media', {
       event_id,
       count: uploadedMedia.length,
@@ -104,14 +106,12 @@ const getMedia = async (req, res) => {
       return res.status(403).json({ success: false, message: 'This media is private' });
     }
 
-    // Get comments with user info
     const { data: comments } = await supabase
       .from('comments')
       .select('*, users(username, avatar_url)')
       .eq('media_id', id)
       .order('created_at', { ascending: true });
 
-    // Get tags with user info
     const { data: tags } = await supabase
       .from('media_tags')
       .select('*, tagged_user:users!media_tags_tagged_user_fkey(id, username, avatar_url)')
@@ -144,10 +144,7 @@ const deleteMedia = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Delete from Cloudinary
     await cloudinary.uploader.destroy(media.public_id, { resource_type: media.media_type });
-
-    // Delete from DB (cascades to likes, comments, etc.)
     await supabase.from('media').delete().eq('id', id);
 
     res.json({ success: true, message: 'Media deleted' });
@@ -168,20 +165,16 @@ const downloadMedia = async (req, res) => {
 
     if (!media) return res.status(404).json({ success: false, message: 'Media not found' });
 
-    // Increment download count
     await supabase.from('media').update({ download_count: media.download_count + 1 }).eq('id', id);
 
-    // Fetch image buffer
     const imageResponse = await axios.get(media.url, { responseType: 'arraybuffer' });
     const imageBuffer = Buffer.from(imageResponse.data);
 
-    // Build watermark text
     const clubName = media.events?.club_name || req.user?.club_name || 'CIG';
     const eventName = media.events?.name || 'Event';
     const userRole = req.user?.role || 'viewer';
     const watermarkText = `${clubName} | ${eventName} | ${userRole}`;
 
-    // Apply watermark with sharp
     const { width, height } = await sharp(imageBuffer).metadata();
     const fontSize = Math.max(20, Math.floor(width / 30));
     const svgWatermark = `
@@ -208,7 +201,7 @@ const downloadMedia = async (req, res) => {
   }
 };
 
-// ─── UPLOAD SELFIE (for face recognition) ────────────────────
+// ─── UPLOAD SELFIE + trigger face matching ────────────────────
 const uploadSelfie = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No selfie uploaded' });
@@ -226,7 +219,16 @@ const uploadSelfie = async (req, res) => {
       .update({ selfie_url: uploadResult.secure_url, updated_at: new Date().toISOString() })
       .eq('id', req.user.id);
 
-    res.json({ success: true, message: 'Selfie uploaded', selfie_url: uploadResult.secure_url });
+    // Run face matching against all existing images (non-blocking)
+    runFaceMatchForUser(req.user.id, uploadResult.secure_url).catch(err =>
+      console.warn('Face match scan failed:', err.message)
+    );
+
+    res.json({
+      success: true,
+      message: 'Selfie uploaded. We\'re scanning for your photos — check "My Photos" soon!',
+      selfie_url: uploadResult.secure_url,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to upload selfie' });
   }
@@ -242,7 +244,7 @@ const getMyPhotos = async (req, res) => {
       .order('confidence', { ascending: false });
 
     if (error) throw error;
-    res.json({ success: true, photos: matches.map(m => m.media) });
+    res.json({ success: true, photos: matches.map(m => m.media).filter(Boolean) });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch your photos' });
   }
@@ -251,18 +253,100 @@ const getMyPhotos = async (req, res) => {
 // ─── HELPER: Imagga AI Tagging ────────────────────────────────
 const getImaggaTags = async (imageUrl) => {
   const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY) return [];
+  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return [];
 
   const response = await axios.get('https://api.imagga.com/v2/tags', {
-    // INCREASED: Limit to 20 to get past generic tags, Threshold to 65 for high accuracy
-    params: { image_url: imageUrl, limit: 10, threshold: 65 }, 
+    params: { image_url: imageUrl, limit: 10, threshold: 30 },
     auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
   });
 
   return response.data.result.tags
-    // REMOVED generic/useless words that AI often overuses
-    .filter(t => t.confidence >= 65 && !['person', 'human', 'people', 'clothing'].includes(t.tag.en.toLowerCase()))
+    .filter(t => t.confidence > 30)
     .map(t => t.tag.en);
+};
+
+// ─── HELPER: Imagga Face Similarity ──────────────────────────
+const getFaceSimilarity = async (url1, url2) => {
+  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
+  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return 0;
+
+  try {
+    const response = await axios.get('https://api.imagga.com/v2/faces/similarity', {
+      params: { image_url: url1, image_url2: url2 },
+      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
+    });
+    return response.data.result?.score ?? 0;
+  } catch {
+    return 0;
+  }
+};
+
+// ─── FACE MATCH: when a new photo is uploaded ────────────────
+// Compare new media against all users who have selfies
+const runFaceMatchForNewMedia = async (media) => {
+  const { IMAGGA_API_KEY } = process.env;
+  if (!IMAGGA_API_KEY) return;
+
+  // Get all users with selfies
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, selfie_url')
+    .not('selfie_url', 'is', null);
+
+  if (!users || users.length === 0) return;
+
+  const CONFIDENCE_THRESHOLD = 65; // Minimum % to record a match
+
+  for (const user of users) {
+    try {
+      const score = await getFaceSimilarity(user.selfie_url, media.url);
+      if (score >= CONFIDENCE_THRESHOLD) {
+        // Upsert so re-runs don't duplicate
+        await supabase.from('face_matches').upsert(
+          { user_id: user.id, media_id: media.id, confidence: score },
+          { onConflict: 'user_id,media_id' }
+        );
+      }
+    } catch (err) {
+      console.warn(`Face match failed for user ${user.id}:`, err.message);
+    }
+  }
+};
+
+// ─── FACE MATCH: when a user uploads their selfie ────────────
+// Scan all existing photos for this user's face
+const runFaceMatchForUser = async (userId, selfieUrl) => {
+  const { IMAGGA_API_KEY } = process.env;
+  if (!IMAGGA_API_KEY) return;
+
+  // Clear old matches first (fresh scan)
+  await supabase.from('face_matches').delete().eq('user_id', userId);
+
+  // Get all images (limit to 200 most recent to avoid rate limits)
+  const { data: allMedia } = await supabase
+    .from('media')
+    .select('id, url')
+    .eq('media_type', 'image')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (!allMedia || allMedia.length === 0) return;
+
+  const CONFIDENCE_THRESHOLD = 65;
+
+  for (const media of allMedia) {
+    try {
+      const score = await getFaceSimilarity(selfieUrl, media.url);
+      if (score >= CONFIDENCE_THRESHOLD) {
+        await supabase.from('face_matches').upsert(
+          { user_id: userId, media_id: media.id, confidence: score },
+          { onConflict: 'user_id,media_id' }
+        );
+      }
+    } catch (err) {
+      console.warn(`Face match failed for media ${media.id}:`, err.message);
+    }
+  }
 };
 
 module.exports = { uploadMedia, getMedia, deleteMedia, downloadMedia, uploadSelfie, getMyPhotos };
