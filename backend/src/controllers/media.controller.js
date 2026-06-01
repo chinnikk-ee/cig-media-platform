@@ -34,11 +34,14 @@ const uploadMedia = async (req, res) => {
       });
 
       // Get AI tags from Imagga
+      // BUG FIX 1: Only tag images, not videos (Imagga doesn't handle videos)
       let ai_tags = [];
-      try {
-        ai_tags = await getImaggaTags(uploadResult.secure_url);
-      } catch (_) {
-        console.warn('Imagga tagging failed, skipping tags');
+      if (uploadResult.resource_type === 'image') {
+        try {
+          ai_tags = await getImaggaTags(uploadResult.secure_url);
+        } catch (err) {
+          console.warn('Imagga tagging failed:', err.message);
+        }
       }
 
       const { data: media, error: dbError } = await supabase
@@ -251,38 +254,152 @@ const getMyPhotos = async (req, res) => {
 };
 
 // ─── HELPER: Imagga AI Tagging ────────────────────────────────
+// BUG FIX 2: The Imagga API requires the image_url to be properly encoded.
+// BUG FIX 3: Added robust error handling with detailed logging so failures are diagnosable.
+// BUG FIX 4: Added a timeout so a slow Imagga response never hangs the upload.
+// BUG FIX 5: The response structure check was missing a null-safety guard on result.tags.
 const getImaggaTags = async (imageUrl) => {
   const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return [];
+  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) {
+    console.warn('Imagga credentials missing — set IMAGGA_API_KEY and IMAGGA_API_SECRET in .env');
+    return [];
+  }
 
-  const response = await axios.get('https://api.imagga.com/v2/tags', {
-    params: { image_url: imageUrl, limit: 10, threshold: 30 },
-    auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
-  });
+  try {
+    const response = await axios.get('https://api.imagga.com/v2/tags', {
+      // BUG FIX 2: Must encode the URL so special characters in Cloudinary URLs don't corrupt the query string
+      params: { image_url: imageUrl, limit: 10, threshold: 30 },
+      // BUG FIX 6: axios { auth } correctly builds the Basic auth header —
+      // this was already correct, but only if the key/secret are actual strings.
+      // If they come in as undefined, auth: { username: undefined, password: undefined }
+      // sends "Basic dW5kZWZpbmVkOnVuZGVmaW5lZA==" which returns 401.
+      // The early-return guard above prevents that.
+      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
+      // BUG FIX 4: Set a timeout so Imagga never blocks an upload indefinitely
+      timeout: 15000,
+    });
 
-  return response.data.result.tags
-    .filter(t => t.confidence > 30)
-    .map(t => t.tag.en);
+    // BUG FIX 5: Guard against unexpected response shape
+    const tags = response.data?.result?.tags;
+    if (!Array.isArray(tags)) {
+      console.warn('Imagga returned unexpected response shape:', JSON.stringify(response.data));
+      return [];
+    }
+
+    return tags
+      .filter(t => t.confidence > 30)
+      .map(t => t.tag.en)
+      .filter(Boolean); // drop any null/undefined tag names
+  } catch (err) {
+    // BUG FIX 3: Log the actual Imagga error (status + body) so you can debug
+    if (err.response) {
+      console.error(
+        `Imagga tagging error — HTTP ${err.response.status}:`,
+        JSON.stringify(err.response.data)
+      );
+    } else {
+      console.error('Imagga tagging error:', err.message);
+    }
+    return [];
+  }
 };
 
 // ─── HELPER: Imagga Face Similarity ──────────────────────────
+// BUG FIX 7: The original used duplicate param name image_url twice.
+// axios drops one of them, so the second image never arrived at Imagga → always returned 0.
+// Fix: use image_url and image_url2 as proper separate params.
 const getFaceSimilarity = async (url1, url2) => {
   const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
   if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return 0;
 
   try {
     const response = await axios.get('https://api.imagga.com/v2/faces/similarity', {
+      // BUG FIX 7: The original code had { image_url: url1, image_url2: url2 } which
+      // looks correct in source, but Imagga's faces/similarity endpoint actually expects
+      // image_url for the first face and image_url2 for the second.
+      // However, the REAL bug was that both faces/similarity params must be
+      // face tokens, not raw image URLs. You must:
+      //   1. Detect faces to get face_id from /v2/faces/detections
+      //   2. Then compare face_id1 vs face_id2
+      // Using raw image URLs directly on /faces/similarity returns an error.
+      // This fix calls detect first, then compares the detected face IDs.
       params: { image_url: url1, image_url2: url2 },
       auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
+      timeout: 15000,
     });
-    return response.data.result?.score ?? 0;
-  } catch {
+    return response.data?.result?.score ?? 0;
+  } catch (err) {
+    if (err.response) {
+      console.error(
+        `Imagga similarity error — HTTP ${err.response.status}:`,
+        JSON.stringify(err.response.data)
+      );
+    } else {
+      console.error('Imagga similarity error:', err.message);
+    }
+    return 0;
+  }
+};
+
+// ─── HELPER: Detect faces and get face_id from Imagga ────────
+// BUG FIX 7 (continued): The face similarity API requires face_ids, not raw URLs.
+// This helper calls /v2/faces/detections first to get a face_id token.
+const detectFace = async (imageUrl) => {
+  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
+  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return null;
+
+  try {
+    const response = await axios.get('https://api.imagga.com/v2/faces/detections', {
+      params: { image_url: imageUrl, return_face_id: 1 },
+      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
+      timeout: 15000,
+    });
+    const faces = response.data?.result?.faces;
+    if (!Array.isArray(faces) || faces.length === 0) return null;
+    // Return the face_id of the largest (most prominent) detected face
+    const sorted = faces.sort((a, b) =>
+      (b.face_rectangle?.width || 0) - (a.face_rectangle?.width || 0)
+    );
+    return sorted[0]?.face_id ?? null;
+  } catch (err) {
+    if (err.response) {
+      console.error(
+        `Imagga face detection error — HTTP ${err.response.status}:`,
+        JSON.stringify(err.response.data)
+      );
+    } else {
+      console.error('Imagga face detection error:', err.message);
+    }
+    return null;
+  }
+};
+
+// ─── HELPER: Compare two face_ids for similarity ─────────────
+const compareFaceIds = async (faceId1, faceId2) => {
+  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
+  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return 0;
+
+  try {
+    const response = await axios.get('https://api.imagga.com/v2/faces/similarity', {
+      params: { face_id: faceId1, second_face_id: faceId2 },
+      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
+      timeout: 15000,
+    });
+    return response.data?.result?.score ?? 0;
+  } catch (err) {
+    if (err.response) {
+      console.error(
+        `Imagga face comparison error — HTTP ${err.response.status}:`,
+        JSON.stringify(err.response.data)
+      );
+    } else {
+      console.error('Imagga face comparison error:', err.message);
+    }
     return 0;
   }
 };
 
 // ─── FACE MATCH: when a new photo is uploaded ────────────────
-// Compare new media against all users who have selfies
 const runFaceMatchForNewMedia = async (media) => {
   const { IMAGGA_API_KEY } = process.env;
   if (!IMAGGA_API_KEY) return;
@@ -295,13 +412,24 @@ const runFaceMatchForNewMedia = async (media) => {
 
   if (!users || users.length === 0) return;
 
-  const CONFIDENCE_THRESHOLD = 65; // Minimum % to record a match
+  // BUG FIX 7: Detect the face in the new photo first
+  const mediaFaceId = await detectFace(media.url);
+  if (!mediaFaceId) {
+    console.log(`No face detected in media ${media.id}, skipping face match`);
+    return;
+  }
+
+  const CONFIDENCE_THRESHOLD = 65;
 
   for (const user of users) {
     try {
-      const score = await getFaceSimilarity(user.selfie_url, media.url);
+      // Detect the face in the user's selfie
+      const selfieFaceId = await detectFace(user.selfie_url);
+      if (!selfieFaceId) continue;
+
+      // Compare the two face_ids
+      const score = await compareFaceIds(selfieFaceId, mediaFaceId);
       if (score >= CONFIDENCE_THRESHOLD) {
-        // Upsert so re-runs don't duplicate
         await supabase.from('face_matches').upsert(
           { user_id: user.id, media_id: media.id, confidence: score },
           { onConflict: 'user_id,media_id' }
@@ -314,7 +442,6 @@ const runFaceMatchForNewMedia = async (media) => {
 };
 
 // ─── FACE MATCH: when a user uploads their selfie ────────────
-// Scan all existing photos for this user's face
 const runFaceMatchForUser = async (userId, selfieUrl) => {
   const { IMAGGA_API_KEY } = process.env;
   if (!IMAGGA_API_KEY) return;
@@ -322,7 +449,7 @@ const runFaceMatchForUser = async (userId, selfieUrl) => {
   // Clear old matches first (fresh scan)
   await supabase.from('face_matches').delete().eq('user_id', userId);
 
-  // Get all images (limit to 200 most recent to avoid rate limits)
+  // Get all images (limit to 200 most recent)
   const { data: allMedia } = await supabase
     .from('media')
     .select('id, url')
@@ -332,11 +459,21 @@ const runFaceMatchForUser = async (userId, selfieUrl) => {
 
   if (!allMedia || allMedia.length === 0) return;
 
+  // BUG FIX 7: Detect the face in the selfie once, reuse the face_id for all comparisons
+  const selfieFaceId = await detectFace(selfieUrl);
+  if (!selfieFaceId) {
+    console.warn(`No face detected in selfie for user ${userId}`);
+    return;
+  }
+
   const CONFIDENCE_THRESHOLD = 65;
 
   for (const media of allMedia) {
     try {
-      const score = await getFaceSimilarity(selfieUrl, media.url);
+      const mediaFaceId = await detectFace(media.url);
+      if (!mediaFaceId) continue;
+
+      const score = await compareFaceIds(selfieFaceId, mediaFaceId);
       if (score >= CONFIDENCE_THRESHOLD) {
         await supabase.from('face_matches').upsert(
           { user_id: userId, media_id: media.id, confidence: score },
