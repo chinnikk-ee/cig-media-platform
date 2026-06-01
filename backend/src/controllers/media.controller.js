@@ -2,6 +2,40 @@ const cloudinary = require('../config/cloudinary');
 const supabase = require('../config/supabase');
 const sharp = require('sharp');
 const axios = require('axios');
+const path = require('path');
+
+// ─── Lazy-load face-api to avoid crashing if models not yet downloaded ───────
+let faceapi = null;
+let faceModelsLoaded = false;
+
+async function getFaceApi() {
+  if (faceapi && faceModelsLoaded) return faceapi;
+
+  try {
+    // face-api.js needs a canvas implementation in Node
+    const canvas = require('canvas');
+    const fa = require('face-api.js');
+
+    // Patch face-api to use the node-canvas implementation
+    const { Canvas, Image, ImageData } = canvas;
+    fa.env.monkeyPatch({ Canvas, Image, ImageData });
+
+    // Models live in backend/models/  (downloaded by setup script below)
+    const MODELS_PATH = path.join(__dirname, '../../models');
+    await fa.nets.ssdMobilenetv1.loadFromDisk(MODELS_PATH);
+    await fa.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH);
+    await fa.nets.faceRecognitionNet.loadFromDisk(MODELS_PATH);
+
+    faceapi = fa;
+    faceModelsLoaded = true;
+    console.log('✅ face-api.js models loaded');
+    return faceapi;
+  } catch (err) {
+    console.warn('⚠️  face-api.js not available:', err.message);
+    console.warn('   Run: npm install face-api.js canvas && node scripts/download-models.js');
+    return null;
+  }
+}
 
 // ─── UPLOAD MEDIA ────────────────────────────────────────────
 const uploadMedia = async (req, res) => {
@@ -33,14 +67,13 @@ const uploadMedia = async (req, res) => {
         uploadStream.end(file.buffer);
       });
 
-      // Get AI tags from Imagga
-      // BUG FIX 1: Only tag images, not videos (Imagga doesn't handle videos)
+      // AI tagging — images only, via Clarifai (free tier)
       let ai_tags = [];
       if (uploadResult.resource_type === 'image') {
         try {
-          ai_tags = await getImaggaTags(uploadResult.secure_url);
+          ai_tags = await getClarifaiTags(uploadResult.secure_url);
         } catch (err) {
-          console.warn('Imagga tagging failed:', err.message);
+          console.warn('Clarifai tagging failed:', err.message);
         }
       }
 
@@ -71,7 +104,7 @@ const uploadMedia = async (req, res) => {
 
       // Run face matching against all users who have selfies (non-blocking)
       if (uploadResult.resource_type === 'image') {
-        runFaceMatchForNewMedia(media).catch(err =>
+        runFaceMatchForNewMedia(media, file.buffer).catch(err =>
           console.warn('Face match on upload failed:', err.message)
         );
       }
@@ -204,7 +237,7 @@ const downloadMedia = async (req, res) => {
   }
 };
 
-// ─── UPLOAD SELFIE + trigger face matching ────────────────────
+// ─── UPLOAD SELFIE ────────────────────────────────────────────
 const uploadSelfie = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No selfie uploaded' });
@@ -223,7 +256,8 @@ const uploadSelfie = async (req, res) => {
       .eq('id', req.user.id);
 
     // Run face matching against all existing images (non-blocking)
-    runFaceMatchForUser(req.user.id, uploadResult.secure_url).catch(err =>
+    // Pass the buffer directly so we don't need to re-download the selfie
+    runFaceMatchForUser(req.user.id, req.file.buffer, uploadResult.secure_url).catch(err =>
       console.warn('Face match scan failed:', err.message)
     );
 
@@ -233,11 +267,12 @@ const uploadSelfie = async (req, res) => {
       selfie_url: uploadResult.secure_url,
     });
   } catch (err) {
+    console.error('Selfie upload error:', err);
     res.status(500).json({ success: false, message: 'Failed to upload selfie' });
   }
 };
 
-// ─── GET MY PHOTOS (face match results) ──────────────────────
+// ─── GET MY PHOTOS ────────────────────────────────────────────
 const getMyPhotos = async (req, res) => {
   try {
     const { data: matches, error } = await supabase
@@ -253,185 +288,140 @@ const getMyPhotos = async (req, res) => {
   }
 };
 
-// ─── HELPER: Imagga AI Tagging ────────────────────────────────
-// BUG FIX 2: The Imagga API requires the image_url to be properly encoded.
-// BUG FIX 3: Added robust error handling with detailed logging so failures are diagnosable.
-// BUG FIX 4: Added a timeout so a slow Imagga response never hangs the upload.
-// BUG FIX 5: The response structure check was missing a null-safety guard on result.tags.
-const getImaggaTags = async (imageUrl) => {
-  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) {
-    console.warn('Imagga credentials missing — set IMAGGA_API_KEY and IMAGGA_API_SECRET in .env');
+// ─── HELPER: Clarifai AI Tagging (free, replaces Imagga tagging) ─────────────
+// Sign up at https://clarifai.com → grab a Personal Access Token (PAT)
+// Add to .env:  CLARIFAI_PAT=your_pat_here
+// Free tier: 1,000 operations/month
+const getClarifaiTags = async (imageUrl) => {
+  const { CLARIFAI_PAT } = process.env;
+  if (!CLARIFAI_PAT) {
+    console.warn('CLARIFAI_PAT not set — skipping AI tagging. Add it to .env to enable tags.');
     return [];
   }
 
   try {
-    const response = await axios.get('https://api.imagga.com/v2/tags', {
-      // BUG FIX 2: Must encode the URL so special characters in Cloudinary URLs don't corrupt the query string
-      params: { image_url: imageUrl, limit: 10, threshold: 30 },
-      // BUG FIX 6: axios { auth } correctly builds the Basic auth header —
-      // this was already correct, but only if the key/secret are actual strings.
-      // If they come in as undefined, auth: { username: undefined, password: undefined }
-      // sends "Basic dW5kZWZpbmVkOnVuZGVmaW5lZA==" which returns 401.
-      // The early-return guard above prevents that.
-      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
-      // BUG FIX 4: Set a timeout so Imagga never blocks an upload indefinitely
-      timeout: 15000,
-    });
-
-    // BUG FIX 5: Guard against unexpected response shape
-    const tags = response.data?.result?.tags;
-    if (!Array.isArray(tags)) {
-      console.warn('Imagga returned unexpected response shape:', JSON.stringify(response.data));
-      return [];
-    }
-
-    return tags
-      .filter(t => t.confidence > 30)
-      .map(t => t.tag.en)
-      .filter(Boolean); // drop any null/undefined tag names
-  } catch (err) {
-    // BUG FIX 3: Log the actual Imagga error (status + body) so you can debug
-    if (err.response) {
-      console.error(
-        `Imagga tagging error — HTTP ${err.response.status}:`,
-        JSON.stringify(err.response.data)
-      );
-    } else {
-      console.error('Imagga tagging error:', err.message);
-    }
-    return [];
-  }
-};
-
-// ─── HELPER: Imagga Face Similarity ──────────────────────────
-// BUG FIX 7: The original used duplicate param name image_url twice.
-// axios drops one of them, so the second image never arrived at Imagga → always returned 0.
-// Fix: use image_url and image_url2 as proper separate params.
-const getFaceSimilarity = async (url1, url2) => {
-  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return 0;
-
-  try {
-    const response = await axios.get('https://api.imagga.com/v2/faces/similarity', {
-      // BUG FIX 7: The original code had { image_url: url1, image_url2: url2 } which
-      // looks correct in source, but Imagga's faces/similarity endpoint actually expects
-      // image_url for the first face and image_url2 for the second.
-      // However, the REAL bug was that both faces/similarity params must be
-      // face tokens, not raw image URLs. You must:
-      //   1. Detect faces to get face_id from /v2/faces/detections
-      //   2. Then compare face_id1 vs face_id2
-      // Using raw image URLs directly on /faces/similarity returns an error.
-      // This fix calls detect first, then compares the detected face IDs.
-      params: { image_url: url1, image_url2: url2 },
-      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
-      timeout: 15000,
-    });
-    return response.data?.result?.score ?? 0;
-  } catch (err) {
-    if (err.response) {
-      console.error(
-        `Imagga similarity error — HTTP ${err.response.status}:`,
-        JSON.stringify(err.response.data)
-      );
-    } else {
-      console.error('Imagga similarity error:', err.message);
-    }
-    return 0;
-  }
-};
-
-// ─── HELPER: Detect faces and get face_id from Imagga ────────
-// BUG FIX 7 (continued): The face similarity API requires face_ids, not raw URLs.
-// This helper calls /v2/faces/detections first to get a face_id token.
-const detectFace = async (imageUrl) => {
-  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return null;
-
-  try {
-    const response = await axios.get('https://api.imagga.com/v2/faces/detections', {
-      params: { image_url: imageUrl, return_face_id: 1 },
-      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
-      timeout: 15000,
-    });
-    const faces = response.data?.result?.faces;
-    if (!Array.isArray(faces) || faces.length === 0) return null;
-    // Return the face_id of the largest (most prominent) detected face
-    const sorted = faces.sort((a, b) =>
-      (b.face_rectangle?.width || 0) - (a.face_rectangle?.width || 0)
+    const response = await axios.post(
+      'https://api.clarifai.com/v2/models/general-image-recognition/outputs',
+      {
+        inputs: [{ data: { image: { url: imageUrl } } }],
+      },
+      {
+        headers: {
+          Authorization: `Key ${CLARIFAI_PAT}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
     );
-    return sorted[0]?.face_id ?? null;
+
+    const concepts = response.data?.outputs?.[0]?.data?.concepts;
+    if (!Array.isArray(concepts)) return [];
+
+    return concepts
+      .filter(c => c.value >= 0.90) // confidence ≥ 90%
+      .slice(0, 10)
+      .map(c => c.name)
+      .filter(Boolean);
   } catch (err) {
     if (err.response) {
-      console.error(
-        `Imagga face detection error — HTTP ${err.response.status}:`,
-        JSON.stringify(err.response.data)
-      );
+      console.error(`Clarifai error — HTTP ${err.response.status}:`, JSON.stringify(err.response.data));
     } else {
-      console.error('Imagga face detection error:', err.message);
+      console.error('Clarifai error:', err.message);
     }
+    return [];
+  }
+};
+
+// ─── HELPER: Get face descriptor from an image buffer (local, no API) ────────
+const getFaceDescriptor = async (imageBuffer) => {
+  const fa = await getFaceApi();
+  if (!fa) return null;
+
+  try {
+    const { createCanvas, loadImage } = require('canvas');
+
+    // Convert buffer → canvas Image
+    const img = await loadImage(imageBuffer);
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const detection = await fa
+      .detectSingleFace(canvas, new fa.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection) return null;
+    return detection.descriptor; // Float32Array — the face "fingerprint"
+  } catch (err) {
+    console.warn('Face descriptor extraction failed:', err.message);
     return null;
   }
 };
 
-// ─── HELPER: Compare two face_ids for similarity ─────────────
-const compareFaceIds = async (faceId1, faceId2) => {
-  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY || !IMAGGA_API_SECRET) return 0;
-
-  try {
-    const response = await axios.get('https://api.imagga.com/v2/faces/similarity', {
-      params: { face_id: faceId1, second_face_id: faceId2 },
-      auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
-      timeout: 15000,
-    });
-    return response.data?.result?.score ?? 0;
-  } catch (err) {
-    if (err.response) {
-      console.error(
-        `Imagga face comparison error — HTTP ${err.response.status}:`,
-        JSON.stringify(err.response.data)
-      );
-    } else {
-      console.error('Imagga face comparison error:', err.message);
-    }
-    return 0;
-  }
+// ─── HELPER: Euclidean distance between two face descriptors ─────────────────
+// face-api.js standard: distance < 0.6 = same person
+const faceDistance = (d1, d2) => {
+  if (!d1 || !d2 || d1.length !== d2.length) return Infinity;
+  let sum = 0;
+  for (let i = 0; i < d1.length; i++) sum += (d1[i] - d2[i]) ** 2;
+  return Math.sqrt(sum);
 };
 
-// ─── FACE MATCH: when a new photo is uploaded ────────────────
-const runFaceMatchForNewMedia = async (media) => {
-  const { IMAGGA_API_KEY } = process.env;
-  if (!IMAGGA_API_KEY) return;
+// Convert distance to a 0-100 confidence score (distance 0 = 100, distance 0.6 = 0)
+const distanceToScore = (distance) => Math.max(0, Math.round((1 - distance / 0.6) * 100));
 
-  // Get all users with selfies
+// ─── HELPER: Download image and return buffer ─────────────────────────────────
+const downloadBuffer = async (url) => {
+  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000 });
+  return Buffer.from(response.data);
+};
+
+// ─── FACE MATCH: when a new photo is uploaded ────────────────────────────────
+const runFaceMatchForNewMedia = async (media, imageBuffer) => {
+  const fa = await getFaceApi();
+  if (!fa) return; // face-api.js not installed yet — skip silently
+
   const { data: users } = await supabase
     .from('users')
-    .select('id, selfie_url')
+    .select('id, selfie_url, face_descriptor')
     .not('selfie_url', 'is', null);
 
   if (!users || users.length === 0) return;
 
-  // BUG FIX 7: Detect the face in the new photo first
-  const mediaFaceId = await detectFace(media.url);
-  if (!mediaFaceId) {
-    console.log(`No face detected in media ${media.id}, skipping face match`);
-    return;
-  }
+  // Get descriptor for the newly uploaded photo
+  const photoDescriptor = await getFaceDescriptor(imageBuffer);
+  if (!photoDescriptor) return; // no face in this photo
 
-  const CONFIDENCE_THRESHOLD = 65;
+  const DISTANCE_THRESHOLD = 0.55; // stricter than default 0.6 to reduce false positives
 
   for (const user of users) {
     try {
-      // Detect the face in the user's selfie
-      const selfieFaceId = await detectFace(user.selfie_url);
-      if (!selfieFaceId) continue;
+      let selfieDescriptor;
 
-      // Compare the two face_ids
-      const score = await compareFaceIds(selfieFaceId, mediaFaceId);
-      if (score >= CONFIDENCE_THRESHOLD) {
+      // Use cached descriptor from DB if available (avoids re-downloading selfie every time)
+      if (user.face_descriptor) {
+        selfieDescriptor = new Float32Array(Object.values(user.face_descriptor));
+      } else {
+        const selfieBuffer = await downloadBuffer(user.selfie_url);
+        selfieDescriptor = await getFaceDescriptor(selfieBuffer);
+
+        // Cache it in the DB for future comparisons
+        if (selfieDescriptor) {
+          await supabase
+            .from('users')
+            .update({ face_descriptor: Array.from(selfieDescriptor) })
+            .eq('id', user.id);
+        }
+      }
+
+      if (!selfieDescriptor) continue;
+
+      const distance = faceDistance(selfieDescriptor, photoDescriptor);
+      if (distance <= DISTANCE_THRESHOLD) {
+        const confidence = distanceToScore(distance);
         await supabase.from('face_matches').upsert(
-          { user_id: user.id, media_id: media.id, confidence: score },
+          { user_id: user.id, media_id: media.id, confidence },
           { onConflict: 'user_id,media_id' }
         );
       }
@@ -441,15 +431,28 @@ const runFaceMatchForNewMedia = async (media) => {
   }
 };
 
-// ─── FACE MATCH: when a user uploads their selfie ────────────
-const runFaceMatchForUser = async (userId, selfieUrl) => {
-  const { IMAGGA_API_KEY } = process.env;
-  if (!IMAGGA_API_KEY) return;
+// ─── FACE MATCH: when a user uploads their selfie ────────────────────────────
+const runFaceMatchForUser = async (userId, selfieBuffer, selfieUrl) => {
+  const fa = await getFaceApi();
+  if (!fa) return;
 
-  // Clear old matches first (fresh scan)
+  // Clear old matches
   await supabase.from('face_matches').delete().eq('user_id', userId);
 
-  // Get all images (limit to 200 most recent)
+  // Get descriptor for the selfie
+  const selfieDescriptor = await getFaceDescriptor(selfieBuffer);
+  if (!selfieDescriptor) {
+    console.warn(`No face detected in selfie for user ${userId}`);
+    return;
+  }
+
+  // Cache descriptor in DB
+  await supabase
+    .from('users')
+    .update({ face_descriptor: Array.from(selfieDescriptor) })
+    .eq('id', userId);
+
+  // Get all images (200 most recent)
   const { data: allMedia } = await supabase
     .from('media')
     .select('id, url')
@@ -459,24 +462,19 @@ const runFaceMatchForUser = async (userId, selfieUrl) => {
 
   if (!allMedia || allMedia.length === 0) return;
 
-  // BUG FIX 7: Detect the face in the selfie once, reuse the face_id for all comparisons
-  const selfieFaceId = await detectFace(selfieUrl);
-  if (!selfieFaceId) {
-    console.warn(`No face detected in selfie for user ${userId}`);
-    return;
-  }
-
-  const CONFIDENCE_THRESHOLD = 65;
+  const DISTANCE_THRESHOLD = 0.55;
 
   for (const media of allMedia) {
     try {
-      const mediaFaceId = await detectFace(media.url);
-      if (!mediaFaceId) continue;
+      const photoBuffer = await downloadBuffer(media.url);
+      const photoDescriptor = await getFaceDescriptor(photoBuffer);
+      if (!photoDescriptor) continue;
 
-      const score = await compareFaceIds(selfieFaceId, mediaFaceId);
-      if (score >= CONFIDENCE_THRESHOLD) {
+      const distance = faceDistance(selfieDescriptor, photoDescriptor);
+      if (distance <= DISTANCE_THRESHOLD) {
+        const confidence = distanceToScore(distance);
         await supabase.from('face_matches').upsert(
-          { user_id: userId, media_id: media.id, confidence: score },
+          { user_id: userId, media_id: media.id, confidence },
           { onConflict: 'user_id,media_id' }
         );
       }
