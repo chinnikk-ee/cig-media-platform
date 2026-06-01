@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom'; // ADDED: useNavigate
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import MediaCard from '../components/MediaCard';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { Camera, Calendar, MapPin, Lock, QrCode, Upload, ArrowLeft } from 'lucide-react';
+// ADDED: Trash2 icon for the delete button
+import { Camera, Calendar, MapPin, Lock, QrCode, Upload, ArrowLeft, Trash2 } from 'lucide-react'; 
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 export default function EventDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate(); // ADDED
   const { user } = useAuth();
   const { joinEvent, leaveEvent } = useSocket();
   const [event, setEvent] = useState(null);
@@ -20,6 +22,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showQR, setShowQR] = useState(false);
 
+  // ... (keep existing useEffects and loadMedia function) ...
   useEffect(() => {
     api.get(`/events/${id}`).then(res => setEvent(res.data.event)).catch(() => toast.error('Event not found'));
     joinEvent(id);
@@ -44,6 +47,19 @@ export default function EventDetailPage() {
     toast.success('Link copied!');
   };
 
+  // ADDED: Delete handler
+  const handleDelete = async () => {
+    if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      try {
+        await api.delete(`/events/${id}`);
+        toast.success('Event deleted successfully');
+        navigate('/events'); // Redirect to events page after deletion
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Failed to delete event');
+      }
+    }
+  };
+
   if (loading && !event) return (
     <div className="flex justify-center py-20">
       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-500" />
@@ -51,6 +67,9 @@ export default function EventDetailPage() {
   );
 
   if (!event) return <div className="text-center py-20 text-gray-500">Event not found</div>;
+
+  // Verify if current user is admin OR the creator of the event
+  const canModifyEvent = user && (user.role === 'admin' || event.created_by === user.id);
 
   return (
     <div className="space-y-6">
@@ -69,6 +88,7 @@ export default function EventDetailPage() {
         <div className="p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
+              {/* ... existing title and details ... */}
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold">{event.name}</h1>
                 {!event.is_public && <span className="badge bg-yellow-500/20 text-yellow-400 flex items-center gap-1"><Lock size={10} /> Private</span>}
@@ -81,7 +101,9 @@ export default function EventDetailPage() {
                 <span className="flex items-center gap-1"><Camera size={14} />{event.media_count || 0} photos</span>
               </div>
             </div>
-            <div className="flex gap-2">
+            
+            {/* Action Buttons */}
+            <div className="flex gap-2 items-center">
               <button onClick={handleShare} className="btn-secondary text-sm">Share</button>
               {event.qr_code && (
                 <button onClick={() => setShowQR(!showQR)} className="btn-secondary text-sm">
@@ -92,6 +114,16 @@ export default function EventDetailPage() {
                 <Link to={`/upload?event=${id}`} className="btn-primary text-sm">
                   <Upload size={16} /> Upload
                 </Link>
+              )}
+              
+              {/* ADDED: Delete Button - Shown only to admin/creator */}
+              {canModifyEvent && (
+                <button 
+                  onClick={handleDelete} 
+                  className="px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
               )}
             </div>
           </div>
