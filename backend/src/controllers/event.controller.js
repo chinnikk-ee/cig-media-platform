@@ -161,10 +161,18 @@ const getEventMedia = async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    const { data: media, error } = await supabase
+    // Only admin/photographer/member may see private media.
+    // Viewers and logged-out visitors get public media only.
+    const canSeePrivate = req.user && req.user.role !== 'viewer';
+
+    let query = supabase
       .from('media_with_counts')
       .select('*')
-      .eq('event_id', id)
+      .eq('event_id', id);
+
+    if (!canSeePrivate) query = query.eq('is_public', true);
+
+    const { data: media, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

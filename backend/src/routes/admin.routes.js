@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const {
   requestRole, getMyRequest, getPendingRequests, reviewRequest,
-  getAllUsers, updateUserRole, assignPhotographer, removePhotographer, getEventPhotographers
+  getAllUsers, updateUserRole, assignPhotographer, removePhotographer,
+  getEventPhotographers, getDashboardStats
 } = require('../controllers/admin.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 
@@ -10,6 +11,7 @@ router.post('/request-role', authenticate, requestRole);
 router.get('/my-request', authenticate, getMyRequest);
 
 // Admin only routes
+router.get('/stats', authenticate, authorize('admin'), getDashboardStats);
 router.get('/requests', authenticate, authorize('admin'), getPendingRequests);
 router.post('/requests/:id/review', authenticate, authorize('admin'), reviewRequest);
 router.get('/users', authenticate, authorize('admin'), getAllUsers);

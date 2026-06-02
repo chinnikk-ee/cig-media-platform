@@ -262,7 +262,47 @@ const getEventPhotographers = async (req, res) => {
   }
 };
 
+// ─── DASHBOARD STATS (admin only) ────────────────────────────
+const getDashboardStats = async (req, res) => {
+  try {
+    const [
+      { count: totalUsers },
+      { count: totalEvents },
+      { count: totalMedia },
+      { count: pendingRequests },
+      { count: photographers },
+      { data: recentUsers },
+      { data: recentMedia },
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('events').select('*', { count: 'exact', head: true }),
+      supabase.from('media').select('*', { count: 'exact', head: true }),
+      supabase.from('role_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'photographer'),
+      supabase.from('users').select('id, username, email, role, created_at').order('created_at', { ascending: false }).limit(5),
+      supabase.from('media').select('id, file_name, url, thumbnail_url, created_at, uploaded_by, event_id, events(name), users!media_uploaded_by_fkey(username)').order('created_at', { ascending: false }).limit(5),
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers: totalUsers || 0,
+        totalEvents: totalEvents || 0,
+        totalMedia: totalMedia || 0,
+        pendingRequests: pendingRequests || 0,
+        photographers: photographers || 0,
+      },
+      recentUsers: recentUsers || [],
+      recentMedia: recentMedia || [],
+    });
+  } catch (err) {
+    console.error('Dashboard stats error:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch stats' });
+  }
+};
+
 module.exports = {
   requestRole, getMyRequest, getPendingRequests, reviewRequest,
-  getAllUsers, updateUserRole, assignPhotographer, removePhotographer, getEventPhotographers
+  getAllUsers, updateUserRole, assignPhotographer, removePhotographer,
+  getEventPhotographers, getDashboardStats
 };

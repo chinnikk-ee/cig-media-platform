@@ -34,6 +34,9 @@ export default function UploadPage() {
     setFiles(prev => prev.filter(f => f.id !== id));
   };
 
+  const selectedEventObj = events.find(ev => ev.id === selectedEvent);
+  const isPrivateEvent = selectedEventObj && !selectedEventObj.is_public;
+
   const handleUpload = async () => {
     if (!selectedEvent) return toast.error('Please select an event');
     if (files.length === 0) return toast.error('Please add files');
@@ -41,7 +44,8 @@ export default function UploadPage() {
     setUploading(true);
     const formData = new FormData();
     formData.append('event_id', selectedEvent);
-    formData.append('is_public', isPublic);
+    // Private events force media private; only public events honour the toggle.
+    formData.append('is_public', isPrivateEvent ? false : isPublic);
     files.forEach(f => formData.append('files', f.file));
 
     try {
@@ -78,13 +82,19 @@ export default function UploadPage() {
             {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
           </select>
         </div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setIsPublic(!isPublic)}
-            className={`relative w-10 h-6 rounded-full transition-all ${isPublic ? 'bg-primary-600' : 'bg-dark-600'}`}>
-            <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isPublic ? 'left-5' : 'left-1'}`} />
-          </button>
-          <span className="text-sm text-gray-300">Public media</span>
-        </div>
+        {isPrivateEvent ? (
+          <p className="text-sm text-gray-400">
+            🔒 This is a private event — all uploaded media will be private.
+          </p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setIsPublic(!isPublic)}
+              className={`relative w-10 h-6 rounded-full transition-all ${isPublic ? 'bg-primary-600' : 'bg-dark-600'}`}>
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isPublic ? 'left-5' : 'left-1'}`} />
+            </button>
+            <span className="text-sm text-gray-300">{isPublic ? 'Public media' : 'Private media'}</span>
+          </div>
+        )}
       </div>
 
       {/* Dropzone */}

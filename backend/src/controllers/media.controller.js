@@ -76,7 +76,11 @@ const uploadMedia = async (req, res) => {
           file_size: file.size,
           width: uploadResult.width,
           height: uploadResult.height,
-          is_public: is_public !== undefined ? is_public === 'true' : event.is_public,
+          // Private events force every item private. Public events let the
+          // uploader choose per upload (defaulting to public).
+          is_public: event.is_public
+            ? (is_public !== undefined ? is_public === 'true' : true)
+            : false,
           ai_tags,
           caption,
           faces_detected: faces_detected.length > 0 ? faces_detected : null,

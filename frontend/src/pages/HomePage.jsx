@@ -9,15 +9,18 @@ export default function HomePage() {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [recentMedia, setRecentMedia] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.get('/events?limit=6&sort_by=created_at'),
       api.get('/search?type=media&limit=8'),
-    ]).then(([evRes, mediaRes]) => {
+      api.get('/admin/stats').catch(() => null),
+    ]).then(([evRes, mediaRes, statsRes]) => {
       setEvents(evRes.data.events || []);
       setRecentMedia(mediaRes.data.results?.media || []);
+      if (statsRes) setStats(statsRes.data.stats);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -46,9 +49,9 @@ export default function HomePage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { icon: Camera, label: 'Photos Shared', value: '10K+' },
-          { icon: Users, label: 'Club Members', value: '500+' },
-          { icon: Zap, label: 'Events Covered', value: '120+' },
+          { icon: Camera, label: 'Photos Shared', value: stats ? `${stats.totalMedia.toLocaleString()}` : '—' },
+          { icon: Users, label: 'Club Members', value: stats ? `${stats.totalUsers.toLocaleString()}` : '—' },
+          { icon: Zap, label: 'Events Covered', value: stats ? `${stats.totalEvents.toLocaleString()}` : '—' },
         ].map(({ icon: Icon, label, value }) => (
           <div key={label} className="card p-6 text-center">
             <Icon size={24} className="text-primary-400 mx-auto mb-2" />
