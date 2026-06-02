@@ -1,21 +1,47 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import MediaCard from '../components/MediaCard';
 import { Camera, Upload, Scan, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function MyPhotosPage() {
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [selfiePreview, setSelfiePreview] = useState(user?.selfie_url || null);
   const fileRef = useRef();
 
-  useEffect(() => {
-    api.get('/media/my-photos').then(res => setPhotos(res.data.photos || [])).finally(() => setLoading(false));
+  const fetchPhotos = useCallback(() => {
+    return api.get('/media/my-photos')
+      .then(res => setPhotos(res.data.photos || []))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { fetchPhotos(); }, [fetchPhotos]);
+
+  // Live updates: the backend scans for your face in the background and emits
+  // these events when it starts/finishes, so the list refreshes without a manual reload.
+  useEffect(() => {
+    if (!socket) return;
+    const onStarted = () => setScanning(true);
+    const onComplete = ({ count } = {}) => {
+      setScanning(false);
+      fetchPhotos().then(() => {
+        if (count > 0) toast.success(`Found ${count} photo${count === 1 ? '' : 's'} of you!`);
+      });
+    };
+    socket.on('face_match_started', onStarted);
+    socket.on('face_match_complete', onComplete);
+    return () => {
+      socket.off('face_match_started', onStarted);
+      socket.off('face_match_complete', onComplete);
+    };
+  }, [socket, fetchPhotos]);
 
   const handleSelfieUpload = async (e) => {
     const file = e.target.files[0];
@@ -26,9 +52,13 @@ export default function MyPhotosPage() {
       const formData = new FormData();
       formData.append('selfie', file);
       const res = await api.post('/media/selfie', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      toast.success('Selfie uploaded! Face matching will find your photos.');
+      toast.success('Selfie uploaded! Scanning photos for your face…');
+      setScanning(true);
       setSelfiePreview(res.data.selfie_url);
-    } catch { toast.error('Upload failed'); }
+    } catch (err) {
+      setSelfiePreview(user?.selfie_url || null);
+      toast.error(err.response?.data?.message || 'Upload failed');
+    }
     finally { setUploading(false); }
   };
 
@@ -68,7 +98,15 @@ export default function MyPhotosPage() {
 
       {/* Matched photos */}
       <div>
-        <h2 className="font-semibold mb-4">Photos You Appear In ({photos.length})</h2>
+        <h2 className="font-semibold mb-4 flex items-center gap-3">
+          Photos You Appear In ({photos.length})
+          {scanning && (
+            <span className="flex items-center gap-2 text-sm font-normal text-primary-400">
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-400" />
+              Scanning photos…
+            </span>
+          )}
+        </h2>
         {loading ? (
           <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" /></div>
         ) : photos.length === 0 ? (

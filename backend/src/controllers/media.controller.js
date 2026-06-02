@@ -3,6 +3,7 @@ const supabase = require('../config/supabase');
 const sharp = require('sharp');
 const axios = require('axios');
 const path = require('path');
+const { detectFaces, compareFaces, fetchImageBytes } = require('../utils/faceRecognition');
 
 // ─── UPLOAD MEDIA ────────────────────────────────────────────
 const uploadMedia = async (req, res) => {
@@ -19,14 +20,13 @@ const uploadMedia = async (req, res) => {
     const uploadedMedia = [];
 
     for (const file of req.files) {
-      // Upload to Cloudinary with face detection enabled
+      // Upload to Cloudinary (storage, thumbnails, watermarked downloads)
       const uploadResult = await new Promise((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           {
             folder: `cig-platform/${event_id}`,
             resource_type: 'auto',
             transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-            faces: true, // Extract face coordinates
           },
           (error, result) => {
             if (error) reject(error);
@@ -44,8 +44,22 @@ const uploadMedia = async (req, res) => {
         ai_tags = getFilenameTags(file.originalname);
       }
 
-      // Extract face data from Cloudinary response
-      const faces_detected = uploadResult.faces || [];
+      // Detect faces with AWS Rekognition (images only)
+      let faces_detected = [];
+      let imageBytes = null;
+      if (uploadResult.resource_type === 'image') {
+        try {
+          imageBytes = await sharp(file.buffer)
+            .rotate()
+            .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 90 })
+            .toBuffer();
+          const faces = await detectFaces(imageBytes);
+          faces_detected = faces.map((f) => f.BoundingBox);
+        } catch (err) {
+          console.warn('Face detection failed:', err.message);
+        }
+      }
 
       const { data: media, error: dbError } = await supabase
         .from('media')
@@ -74,8 +88,8 @@ const uploadMedia = async (req, res) => {
       uploadedMedia.push(media);
 
       // Run face matching in background if faces detected
-      if (faces_detected.length > 0) {
-        runFaceMatchForNewMedia(media, uploadResult).catch(err =>
+      if (faces_detected.length > 0 && imageBytes) {
+        runFaceMatchForNewMedia(media, imageBytes, req.io).catch(err =>
           console.warn('Face match failed:', err.message)
         );
       }
@@ -213,43 +227,53 @@ const uploadSelfie = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No selfie uploaded' });
 
-    // Upload selfie to Cloudinary with face detection
-    const uploadResult = await new Promise((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'cig-platform/selfies',
-          transformation: [{ quality: 'auto' }],
-          faces: true,
-        },
-        (err, result) => (err ? reject(err) : resolve(result))
-      );
-      stream.end(req.file.buffer);
-    });
+    // Detect a face in the selfie with AWS Rekognition before storing it
+    const selfieBytes = await sharp(req.file.buffer)
+      .rotate()
+      .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer();
 
-    // Check if a face was detected in selfie
-    if (!uploadResult.faces || uploadResult.faces.length === 0) {
+    const selfieFaces = await detectFaces(selfieBytes);
+    if (selfieFaces.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'No face detected in your selfie. Please upload a clear front-facing photo.',
       });
     }
+    if (selfieFaces.length > 1) {
+      // Face matching uses a single reference face. A group photo is ambiguous —
+      // we can't tell which person to search for — so require a solo selfie.
+      return res.status(400).json({
+        success: false,
+        message: `We detected ${selfieFaces.length} faces. Please upload a selfie of just YOUR face so we can find photos of you.`,
+      });
+    }
 
-    // Store selfie URL and face region
-    const faceRegion = uploadResult.faces[0]; // [x, y, width, height]
+    // Upload selfie to Cloudinary (storage)
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'cig-platform/selfies', transformation: [{ quality: 'auto' }] },
+        (err, result) => (err ? reject(err) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    // Store selfie URL and detected face region (Rekognition bounding box)
     await supabase
       .from('users')
       .update({
         selfie_url: uploadResult.secure_url,
         face_data: {
           public_id: uploadResult.public_id,
-          face_region: faceRegion,
+          face_region: selfieFaces[0].BoundingBox,
         },
         updated_at: new Date().toISOString(),
       })
       .eq('id', req.user.id);
 
-    // Run face matching in background
-    runFaceMatchForUser(req.user.id, uploadResult).catch(err =>
+    // Run face matching in background using the normalised selfie bytes
+    runFaceMatchForUser(req.user.id, selfieBytes, req.io).catch(err =>
       console.warn('Face match scan failed:', err.message)
     );
 
@@ -280,89 +304,85 @@ const getMyPhotos = async (req, res) => {
   }
 };
 
-// ─── FACE MATCH: Compare selfie vs all existing photos ───────
-// Uses Cloudinary's compare API to check similarity between faces
-const runFaceMatchForUser = async (userId, selfieUploadResult) => {
+// ─── FACE MATCH: Compare a user's selfie vs all existing photos ──
+// Uses AWS Rekognition CompareFaces for real face-similarity matching.
+const runFaceMatchForUser = async (userId, selfieBytes, io) => {
   try {
-    // Clear old matches
+    // Let the user's page know a scan has started
+    io?.to(`user:${userId}`).emit('face_match_started');
+
+    // Clear old matches for this user
     await supabase.from('face_matches').delete().eq('user_id', userId);
 
-    // Get all images in the platform
+    // Get all images. We don't filter on faces_detected: older photos were
+    // uploaded before face detection existed (faces_detected is null), and
+    // Rekognition CompareFaces safely returns "no match" for photos that
+    // contain no matching face anyway.
     const { data: allMedia } = await supabase
       .from('media')
-      .select('id, public_id, faces_detected')
+      .select('id, url, faces_detected')
       .eq('media_type', 'image')
-      .not('faces_detected', 'is', null)
       .order('created_at', { ascending: false })
       .limit(500);
 
     if (!allMedia || allMedia.length === 0) return;
 
-    const selfiePublicId = selfieUploadResult.public_id;
-    const matches = [];
+    let matchCount = 0;
 
     for (const media of allMedia) {
       try {
-        // Use Cloudinary's built-in compare to check face similarity
-        const result = await cloudinary.api.resource(media.public_id, {
-          faces: true,
-        });
+        const targetBytes = await fetchImageBytes(media.url);
+        const similarity = await compareFaces(selfieBytes, targetBytes);
+        if (similarity === null) continue;
 
-        if (!result.faces || result.faces.length === 0) continue;
-
-        // Compare using Cloudinary's visual search / similarity
-        const compareResult = await cloudinary.uploader.explicit(media.public_id, {
-          type: 'upload',
-          similarity_search: {
-            reference_image: selfiePublicId,
-          },
-        }).catch(() => null);
-
-        // Fallback: use simple face count heuristic if compare not available
-        // If photo has faces and selfie has face, mark as potential match
-        // This is a simplified approach - real similarity requires paid Cloudinary plan
-        if (result.faces.length > 0) {
-          matches.push({ media_id: media.id, confidence: 70 });
-        }
-      } catch (_) {
-        continue;
+        await supabase.from('face_matches').upsert(
+          { user_id: userId, media_id: media.id, confidence: Math.round(similarity) },
+          { onConflict: 'user_id,media_id' }
+        );
+        matchCount++;
+      } catch (err) {
+        console.warn(`Compare failed for media ${media.id}:`, err.message);
       }
     }
 
-    // Store matches
-    for (const match of matches) {
-      await supabase.from('face_matches').upsert(
-        { user_id: userId, media_id: match.media_id, confidence: match.confidence },
-        { onConflict: 'user_id,media_id' }
-      );
-    }
+    console.log(`Face match complete for user ${userId}: ${matchCount} matches`);
 
-    console.log(`Face match complete for user ${userId}: ${matches.length} matches`);
+    // Tell the user's page the scan finished so it can refresh live
+    io?.to(`user:${userId}`).emit('face_match_complete', { count: matchCount });
   } catch (err) {
     console.error('runFaceMatchForUser error:', err.message);
+    io?.to(`user:${userId}`).emit('face_match_complete', { count: 0, error: true });
   }
 };
 
 // ─── FACE MATCH: when a new photo is uploaded ────────────────
-const runFaceMatchForNewMedia = async (media, uploadResult) => {
+// Compares the new photo against every registered user's selfie.
+const runFaceMatchForNewMedia = async (media, mediaBytes, io) => {
   try {
-    // Get all users with selfies
+    // Get all users with a stored selfie
     const { data: users } = await supabase
       .from('users')
-      .select('id, selfie_url, face_data')
+      .select('id, selfie_url')
       .not('selfie_url', 'is', null);
 
     if (!users || users.length === 0) return;
 
     for (const user of users) {
       try {
-        // If photo has faces detected, it's a candidate match
-        // Store with moderate confidence — real similarity needs paid plan
+        const selfieBytes = await fetchImageBytes(user.selfie_url);
+        const similarity = await compareFaces(selfieBytes, mediaBytes);
+        if (similarity === null) continue;
+
         await supabase.from('face_matches').upsert(
-          { user_id: user.id, media_id: media.id, confidence: 65 },
+          { user_id: user.id, media_id: media.id, confidence: Math.round(similarity) },
           { onConflict: 'user_id,media_id' }
         );
-      } catch (_) { continue; }
+
+        // Notify this user that a new photo of them is available
+        io?.to(`user:${user.id}`).emit('face_match_complete', { count: 1, newMedia: true });
+      } catch (err) {
+        console.warn(`Compare failed for user ${user.id}:`, err.message);
+      }
     }
   } catch (err) {
     console.error('runFaceMatchForNewMedia error:', err.message);
