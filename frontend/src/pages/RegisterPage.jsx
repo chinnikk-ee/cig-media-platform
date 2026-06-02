@@ -7,14 +7,19 @@ import toast from 'react-hot-toast';
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '', username: '', full_name: '' });
+  const [form, setForm] = useState({ email: '', password: '', username: '', full_name: '', confirm_password: '' });
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.password !== form.confirm_password) {
+      toast.error('Passwords do not match');
+      return;
+    }
     setLoading(true);
     try {
-      await register({ ...form, role: 'viewer' });
+      const { confirm_password, ...payload } = form;
+      await register({ ...payload, role: 'viewer' });
       toast.success('Account created! You joined as a Viewer.');
       navigate('/');
     } catch (err) {
@@ -54,6 +59,13 @@ export default function RegisterPage() {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
               <input type="password" value={form.password} onChange={set('password')} className="input" placeholder="Min 8 characters" required minLength={8} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password *</label>
+              <input type="password" value={form.confirm_password} onChange={set('confirm_password')} className="input" placeholder="Re-enter your password" required minLength={8} />
+              {form.confirm_password && form.password !== form.confirm_password && (
+                <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+              )}
             </div>
 
             {/* Role info box */}

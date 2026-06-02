@@ -13,8 +13,8 @@ const ROLE_COLORS = {
 
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
-  const [form, setForm] = useState({ full_name: user?.full_name || '', club_name: user?.club_name || '' });
-  const [pwForm, setPwForm] = useState({ current_password: '', new_password: '' });
+  const [form, setForm] = useState({ full_name: user?.full_name || '' });
+  const [pwForm, setPwForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
   const [saving, setSaving] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
 
@@ -31,11 +31,16 @@ export default function ProfilePage() {
 
   const handlePwChange = async (e) => {
     e.preventDefault();
+    if (pwForm.new_password !== pwForm.confirm_password) {
+      toast.error('New passwords do not match');
+      return;
+    }
     setChangingPw(true);
     try {
-      await api.put('/auth/change-password', pwForm);
+      const { confirm_password, ...payload } = pwForm;
+      await api.put('/auth/change-password', payload);
       toast.success('Password changed');
-      setPwForm({ current_password: '', new_password: '' });
+      setPwForm({ current_password: '', new_password: '', confirm_password: '' });
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
     finally { setChangingPw(false); }
   };
@@ -67,11 +72,6 @@ export default function ProfilePage() {
             <input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })}
               className="input" placeholder="Your full name" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Club Name</label>
-            <input value={form.club_name} onChange={e => setForm({ ...form, club_name: e.target.value })}
-              className="input" placeholder="Your club" />
-          </div>
           <button type="submit" disabled={saving} className="btn-primary">
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -93,6 +93,15 @@ export default function ProfilePage() {
             <input type="password" value={pwForm.new_password}
               onChange={e => setPwForm({ ...pwForm, new_password: e.target.value })}
               className="input" minLength={8} required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
+            <input type="password" value={pwForm.confirm_password}
+              onChange={e => setPwForm({ ...pwForm, confirm_password: e.target.value })}
+              className="input" minLength={8} required />
+            {pwForm.confirm_password && pwForm.new_password !== pwForm.confirm_password && (
+              <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+            )}
           </div>
           <button type="submit" disabled={changingPw} className="btn-primary">
             {changingPw ? 'Changing...' : 'Change Password'}

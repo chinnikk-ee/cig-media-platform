@@ -9,6 +9,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import { Camera, Calendar, MapPin, Lock, QrCode, Upload, ArrowLeft, Trash2 } from 'lucide-react'; 
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import QRCode from 'qrcode';
 
 export default function EventDetailPage() {
   const { id } = useParams();
@@ -21,6 +22,16 @@ export default function EventDetailPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [showQR, setShowQR] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+
+  // Generate the QR code client-side from the current domain so it always
+  // points to the deployed site (not whatever URL the backend baked in).
+  useEffect(() => {
+    const url = `${window.location.origin}/events/${id}`;
+    QRCode.toDataURL(url, { width: 320, margin: 2 })
+      .then(setQrDataUrl)
+      .catch(() => setQrDataUrl(null));
+  }, [id]);
 
   // ... (keep existing useEffects and loadMedia function) ...
   useEffect(() => {
@@ -105,7 +116,7 @@ export default function EventDetailPage() {
             {/* Action Buttons */}
             <div className="flex gap-2 items-center">
               <button onClick={handleShare} className="btn-secondary text-sm">Share</button>
-              {event.qr_code && (
+              {qrDataUrl && (
                 <button onClick={() => setShowQR(!showQR)} className="btn-secondary text-sm">
                   <QrCode size={16} /> QR Code
                 </button>
@@ -129,9 +140,9 @@ export default function EventDetailPage() {
           </div>
 
           {/* QR Code modal */}
-          {showQR && event.qr_code && (
+          {showQR && qrDataUrl && (
             <div className="mt-4 p-4 bg-white rounded-xl inline-block">
-              <img src={event.qr_code} alt="QR Code" className="w-40 h-40" />
+              <img src={qrDataUrl} alt="QR Code" className="w-40 h-40" />
               <p className="text-dark-900 text-xs text-center mt-2 font-medium">Scan to open album</p>
             </div>
           )}
