@@ -23,11 +23,11 @@ export default function UploadPage() {
       preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
       status: 'pending',
     }));
-    setFiles(prev => [...prev, ...mapped]);
+    setFiles(prev => { const combined = [...prev, ...mapped]; if (combined.length > 50) { toast.error('Max 50 files at once'); return combined.slice(0, 50); } return combined; });
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'image/*': [], 'video/*': [] }, multiple: true,
+    onDrop, accept: { 'image/*': [], 'video/*': [] }, multiple: true, maxFiles: 50,
   });
 
   const removeFile = (id) => {
@@ -108,7 +108,7 @@ export default function UploadPage() {
         ) : (
           <>
             <p className="text-gray-300 font-medium">Drag & drop photos or videos here</p>
-            <p className="text-gray-500 text-sm mt-2">or click to browse · Max 100MB per file · Bulk upload supported</p>
+            <p className="text-gray-500 text-sm mt-2">or click to browse · Max 100MB per file · Up to 50 files at once</p>
           </>
         )}
       </div>

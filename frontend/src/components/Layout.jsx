@@ -2,7 +2,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Home, Images, Search, Upload, Heart, User, LogOut, Bell, Camera, Plus, Menu, Shield, ShieldCheck } from 'lucide-react';
+import { Home, Images, Search, Upload, Bookmark, User, LogOut, Bell, Camera, Plus, Menu, Shield, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import NotificationPanel from './NotificationPanel';
 
@@ -21,7 +21,7 @@ export default function Layout() {
     { to: '/', icon: Home, label: 'Home', show: true },
     { to: '/events', icon: Images, label: 'Events', show: true },
     { to: '/search', icon: Search, label: 'Search', show: true },
-    { to: '/favourites', icon: Heart, label: 'Favourites', show: !!user && user.role !== 'viewer' },
+    { to: '/favourites', icon: Bookmark, label: 'Favourites', show: !!user && user.role !== 'viewer' },
     { to: '/my-photos', icon: Camera, label: 'My Photos', show: !!user },
     { to: '/profile', icon: User, label: 'Profile', show: !!user },
   ];

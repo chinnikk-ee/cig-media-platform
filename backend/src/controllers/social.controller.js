@@ -132,7 +132,41 @@ const getMyFavourites = async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    res.json({ success: true, favourites: data.map(d => d.media) });
+
+    const mediaItems = data.map(d => d.media).filter(Boolean);
+    if (mediaItems.length === 0) return res.json({ success: true, favourites: [] });
+
+    const mediaIds = mediaItems.map(m => m.id);
+
+    // Fetch like counts, comment counts, and user's own likes in parallel
+    const [{ data: likeCounts }, { data: commentCounts }, { data: userLikes }] = await Promise.all([
+      supabase.from('likes').select('media_id').in('media_id', mediaIds),
+      supabase.from('comments').select('media_id').in('media_id', mediaIds),
+      supabase.from('likes').select('media_id').eq('user_id', req.user.id).in('media_id', mediaIds),
+    ]);
+
+    const likedSet = new Set((userLikes || []).map(l => l.media_id));
+
+    const likeCountMap = (likeCounts || []).reduce((acc, l) => {
+      acc[l.media_id] = (acc[l.media_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    const commentCountMap = (commentCounts || []).reduce((acc, c) => {
+      acc[c.media_id] = (acc[c.media_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    const enriched = mediaItems.map(m => ({
+      ...m,
+      is_favourited: true,
+      is_liked: likedSet.has(m.id),
+      like_count: likeCountMap[m.id] || 0,
+      comment_count: commentCountMap[m.id] || 0,
+      event_name: m.events?.name || null,
+    }));
+
+    res.json({ success: true, favourites: enriched });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch favourites' });
   }

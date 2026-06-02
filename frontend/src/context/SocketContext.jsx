@@ -20,7 +20,7 @@ export const SocketProvider = ({ children }) => {
       socketRef.current.emit('notifications:join', user.id);
 
       socketRef.current.on('notification:new', (notif) => {
-        setNotifications(prev => [notif, ...prev]);
+        setNotifications(prev => [notif, ...prev].slice(0, 50));
         setUnreadCount(c => c + 1);
       });
     }
