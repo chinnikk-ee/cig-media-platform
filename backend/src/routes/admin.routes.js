@@ -2,9 +2,12 @@ const router = require('express').Router();
 const {
   requestRole, getMyRequest, getPendingRequests, reviewRequest,
   getAllUsers, updateUserRole, assignPhotographer, removePhotographer,
-  getEventPhotographers, getDashboardStats
+  getEventPhotographers, getDashboardStats, getPublicStats
 } = require('../controllers/admin.controller');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+
+// Public (no auth)
+router.get('/public-stats', getPublicStats);
 
 // Viewer requests a role upgrade
 router.post('/request-role', authenticate, requestRole);

@@ -265,35 +265,136 @@ const getEventPhotographers = async (req, res) => {
 // ─── DASHBOARD STATS (admin only) ────────────────────────────
 const getDashboardStats = async (req, res) => {
   try {
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
     const [
       { count: totalUsers },
       { count: totalEvents },
       { count: totalMedia },
       { count: pendingRequests },
-      { count: photographers },
-      { data: recentUsers },
-      { data: recentMedia },
+      { count: newUsersThisWeek },
+      { data: totalFileSize },
+      { data: recentJoins },
+      { data: recentUploads },
+      { data: recentRoleRequests },
+      { data: eventsWithPhotographers },
     ] = await Promise.all([
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('events').select('*', { count: 'exact', head: true }),
       supabase.from('media').select('*', { count: 'exact', head: true }),
       supabase.from('role_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'photographer'),
-      supabase.from('users').select('id, username, email, role, created_at').order('created_at', { ascending: false }).limit(5),
-      supabase.from('media').select('id, file_name, url, thumbnail_url, created_at, uploaded_by, event_id, events(name), users!media_uploaded_by_fkey(username)').order('created_at', { ascending: false }).limit(5),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', oneWeekAgo),
+      // file_size in bytes, we'll sum on the backend
+      supabase.from('media').select('file_size'),
+      // activity: recent joins
+      supabase.from('users')
+        .select('id, username, role, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10),
+      // activity: recent uploads (group-friendly view)
+      supabase.from('media')
+        .select('id, file_name, created_at, uploaded_by, event_id, events(name), users!uploaded_by(username)')
+        .order('created_at', { ascending: false })
+        .limit(20),
+      // activity: recent role requests
+      supabase.from('role_requests')
+        .select('id, requested_role, status, created_at, users!role_requests_user_id_fkey(username)')
+        .order('created_at', { ascending: false })
+        .limit(10),
+      // quick action: events that have no photographers assigned
+      supabase.from('events')
+        .select('id, name, event_date, id, event_photographers(photographer_id)')
+        .order('created_at', { ascending: false })
+        .limit(50),
     ]);
+
+    // Calculate storage used (sum file_size in MB)
+    const storageMB = (totalFileSize?.reduce((acc, m) => acc + (m.file_size || 0), 0) || 0) / (1024 * 1024);
+
+    // Build unified chronological activity feed
+    const feedItems = [];
+
+    (recentJoins || []).forEach(u => {
+      feedItems.push({
+        id: `join-${u.id}`,
+        type: 'join',
+        message: `@${u.username} joined as ${u.role}`,
+        timestamp: u.created_at,
+        meta: { username: u.username, role: u.role },
+      });
+    });
+
+    // Group consecutive uploads by same uploader + event within 5min window
+    const uploadGroups = [];
+    (recentUploads || []).forEach(m => {
+      const last = uploadGroups[uploadGroups.length - 1];
+      const sameContext =
+        last &&
+        last.uploadedBy === m.users?.username &&
+        last.eventId === m.event_id &&
+        Math.abs(new Date(last.latestAt) - new Date(m.created_at)) < 5 * 60 * 1000;
+      if (sameContext) {
+        last.count++;
+        if (new Date(m.created_at) > new Date(last.latestAt)) last.latestAt = m.created_at;
+      } else {
+        uploadGroups.push({
+          id: `upload-${m.id}`,
+          uploadedBy: m.users?.username || 'someone',
+          eventName: m.events?.name || 'an event',
+          eventId: m.event_id,
+          count: 1,
+          latestAt: m.created_at,
+        });
+      }
+    });
+    uploadGroups.forEach(g => {
+      feedItems.push({
+        id: g.id,
+        type: 'upload',
+        message: `${g.count === 1 ? '1 photo' : `${g.count} photos`} uploaded to "${g.eventName}" by @${g.uploadedBy}`,
+        timestamp: g.latestAt,
+        meta: { count: g.count, eventName: g.eventName, eventId: g.eventId, uploader: g.uploadedBy },
+      });
+    });
+
+    (recentRoleRequests || []).forEach(r => {
+      feedItems.push({
+        id: `role-${r.id}`,
+        type: 'role_request',
+        message: `Role request from @${r.users?.username}: ${r.requested_role} (${r.status})`,
+        timestamp: r.created_at,
+        meta: { username: r.users?.username, requestedRole: r.requested_role, status: r.status, requestId: r.id },
+      });
+    });
+
+    // Sort by timestamp descending
+    feedItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Quick actions
+    const unassignedEvents = (eventsWithPhotographers || [])
+      .filter(e => !e.event_photographers || e.event_photographers.length === 0)
+      .slice(0, 5)
+      .map(e => ({ id: e.id, name: e.name, event_date: e.event_date }));
 
     res.json({
       success: true,
+      // Admin operational stats strip
       stats: {
         totalUsers: totalUsers || 0,
         totalEvents: totalEvents || 0,
         totalMedia: totalMedia || 0,
         pendingRequests: pendingRequests || 0,
-        photographers: photographers || 0,
+        newUsersThisWeek: newUsersThisWeek || 0,
+        storageMB: Math.round(storageMB * 10) / 10,
       },
-      recentUsers: recentUsers || [],
-      recentMedia: recentMedia || [],
+      // Unified activity feed
+      activityFeed: feedItems.slice(0, 25),
+      // Quick action blocks
+      quickActions: {
+        pendingRequests: pendingRequests || 0,
+        unassignedEvents,
+        newUsersThisWeek: newUsersThisWeek || 0,
+      },
     });
   } catch (err) {
     console.error('Dashboard stats error:', err);
@@ -301,8 +402,33 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// ─── PUBLIC STATS (homepage) ──────────────────────────────────
+const getPublicStats = async (req, res) => {
+  try {
+    const [
+      { count: totalMedia },
+      { count: totalUsers },
+      { count: totalEvents },
+    ] = await Promise.all([
+      supabase.from('media').select('*', { count: 'exact', head: true }).eq('is_public', true),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('events').select('*', { count: 'exact', head: true }).eq('is_public', true),
+    ]);
+    res.json({
+      success: true,
+      stats: {
+        photosShared: totalMedia || 0,
+        members: totalUsers || 0,
+        eventsCovered: totalEvents || 0,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to fetch stats' });
+  }
+};
+
 module.exports = {
   requestRole, getMyRequest, getPendingRequests, reviewRequest,
   getAllUsers, updateUserRole, assignPhotographer, removePhotographer,
-  getEventPhotographers, getDashboardStats
+  getEventPhotographers, getDashboardStats, getPublicStats
 };

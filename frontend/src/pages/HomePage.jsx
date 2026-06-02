@@ -16,7 +16,7 @@ export default function HomePage() {
     Promise.all([
       api.get('/events?limit=6&sort_by=created_at'),
       api.get('/search?type=media&limit=8'),
-      api.get('/admin/stats').catch(() => null),
+      api.get('/admin/public-stats').catch(() => null),
     ]).then(([evRes, mediaRes, statsRes]) => {
       setEvents(evRes.data.events || []);
       setRecentMedia(mediaRes.data.results?.media || []);
@@ -49,9 +49,9 @@ export default function HomePage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { icon: Camera, label: 'Photos Shared', value: stats ? `${stats.totalMedia.toLocaleString()}` : '—' },
-          { icon: Users, label: 'Club Members', value: stats ? `${stats.totalUsers.toLocaleString()}` : '—' },
-          { icon: Zap, label: 'Events Covered', value: stats ? `${stats.totalEvents.toLocaleString()}` : '—' },
+          { icon: Camera, label: 'Photos Shared', value: stats ? (stats.photosShared >= 1000 ? `${(stats.photosShared / 1000).toFixed(1)}K+` : `${stats.photosShared}+`) : '10K+' },
+          { icon: Users, label: 'Club Members', value: stats ? `${stats.members}+` : '500+' },
+          { icon: Zap, label: 'Events Covered', value: stats ? `${stats.eventsCovered}+` : '120+' },
         ].map(({ icon: Icon, label, value }) => (
           <div key={label} className="card p-6 text-center">
             <Icon size={24} className="text-primary-400 mx-auto mb-2" />
