@@ -1,15 +1,50 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { Heart, MessageCircle, Download, Bookmark, Share2, Tag, ArrowLeft, Send, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Download, Bookmark, Share2, Tag, ArrowLeft, Send, Trash2, AlertTriangle, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
+
+function DeleteConfirmModal({ onConfirm, onCancel, deleting }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="card p-6 w-full max-w-sm mx-4 space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={20} className="text-red-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-white">Delete media?</h3>
+              <p className="text-sm text-gray-400 mt-0.5">This action cannot be undone.</p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="text-gray-500 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button onClick={onCancel} disabled={deleting}
+            className="flex-1 btn bg-dark-700 hover:bg-dark-600 text-gray-300 py-2 rounded-lg text-sm transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={deleting}
+            className="flex-1 btn bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+            {deleting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 size={14} />}
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MediaDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { joinMedia, leaveMedia } = useSocket();
   const [media, setMedia] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,6 +52,8 @@ export default function MediaDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
   const [tagResults, setTagResults] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.get(`/media/${id}`).then(res => setMedia(res.data.media)).catch(() => toast.error('Failed to load media')).finally(() => setLoading(false));
@@ -54,6 +91,19 @@ export default function MediaDetailPage() {
       a.download = `cig-${media.file_name || id}.jpg`; a.click();
       window.URL.revokeObjectURL(url);
     } catch { toast.error('Download failed'); }
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/media/${id}`);
+      toast.success('Media deleted');
+      navigate(media.event_id ? `/events/${media.event_id}` : '/');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete media');
+      setDeleting(false);
+      setShowDeleteModal(false);
+    }
   };
 
   const handleShare = async () => {
@@ -103,6 +153,14 @@ export default function MediaDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      {showDeleteModal && (
+        <DeleteConfirmModal
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setShowDeleteModal(false)}
+          deleting={deleting}
+        />
+      )}
+
       <Link to={`/events/${media.event_id}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-white text-sm mb-6">
         <ArrowLeft size={16} /> Back to {media.event_name || 'Event'}
       </Link>
@@ -136,6 +194,11 @@ export default function MediaDetailPage() {
               </button>
               <button onClick={handleShare} className="text-gray-400 hover:text-white"><Share2 size={20} /></button>
               <button onClick={handleDownload} className="text-gray-400 hover:text-white"><Download size={20} /></button>
+              {user && (user.id === media.uploaded_by || user.role === 'admin') && (
+                <button onClick={() => setShowDeleteModal(true)} className="text-gray-400 hover:text-red-400 transition-colors" title="Delete media">
+                  <Trash2 size={20} />
+                </button>
+              )}
             </div>
           </div>
 

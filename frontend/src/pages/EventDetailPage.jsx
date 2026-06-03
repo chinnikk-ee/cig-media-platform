@@ -1,19 +1,57 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom'; // ADDED: useNavigate
+import { createPortal } from 'react-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import MediaCard from '../components/MediaCard';
 import InfiniteScroll from 'react-infinite-scroll-component';
-// ADDED: Trash2 icon for the delete button
-import { Camera, Calendar, MapPin, Lock, QrCode, Upload, ArrowLeft, Trash2 } from 'lucide-react'; 
+import { Camera, Calendar, MapPin, Lock, QrCode, Upload, ArrowLeft, Trash2, AlertTriangle, X, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
 
+// Rendered via a Portal so it always sits above every stacking context in the layout
+function DeleteConfirmModal({ title, description, onConfirm, onCancel, deleting }) {
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="card p-6 w-full max-w-sm mx-4 space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={20} className="text-red-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-white">{title}</h3>
+              <p className="text-sm text-gray-400 mt-0.5">{description}</p>
+            </div>
+          </div>
+          <button onClick={onCancel} disabled={deleting} className="text-gray-500 hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button onClick={onCancel} disabled={deleting}
+            className="flex-1 btn bg-dark-700 hover:bg-dark-600 text-gray-300 py-2 rounded-lg text-sm transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={deleting}
+            className="flex-1 btn bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+            {deleting
+              ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              : <Trash2 size={14} />}
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function EventDetailPage() {
   const { id } = useParams();
-  const navigate = useNavigate(); // ADDED
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { joinEvent, leaveEvent } = useSocket();
   const [event, setEvent] = useState(null);
@@ -24,8 +62,16 @@ export default function EventDetailPage() {
   const [showQR, setShowQR] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(null);
 
-  // Generate the QR code client-side from the current domain so it always
-  // points to the deployed site (not whatever URL the backend baked in).
+  // Delete event modal
+  const [showDeleteEvent, setShowDeleteEvent] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
+
+  // Multi-select delete
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [showDeleteMedia, setShowDeleteMedia] = useState(false);
+  const [deletingMedia, setDeletingMedia] = useState(false);
+
   useEffect(() => {
     const url = `${window.location.origin}/events/${id}`;
     QRCode.toDataURL(url, { width: 320, margin: 2 })
@@ -33,7 +79,6 @@ export default function EventDetailPage() {
       .catch(() => setQrDataUrl(null));
   }, [id]);
 
-  // ... (keep existing useEffects and loadMedia function) ...
   useEffect(() => {
     api.get(`/events/${id}`).then(res => setEvent(res.data.event)).catch(() => toast.error('Event not found'));
     joinEvent(id);
@@ -58,16 +103,60 @@ export default function EventDetailPage() {
     toast.success('Link copied!');
   };
 
-  // ADDED: Delete handler
-  const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-      try {
-        await api.delete(`/events/${id}`);
-        toast.success('Event deleted successfully');
-        navigate('/events'); // Redirect to events page after deletion
-      } catch (error) {
-        toast.error(error.response?.data?.message || 'Failed to delete event');
-      }
+  const handleDeleteEvent = async () => {
+    setDeletingEvent(true);
+    try {
+      await api.delete(`/events/${id}`);
+      toast.success('Event deleted');
+      navigate('/events');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete event');
+      setDeletingEvent(false);
+      setShowDeleteEvent(false);
+    }
+  };
+
+  const toggleSelect = (mediaId) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(mediaId) ? next.delete(mediaId) : next.add(mediaId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === media.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(media.map(m => m.id)));
+    }
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const handleDeleteSelectedMedia = async () => {
+    setDeletingMedia(true);
+    const ids = [...selected];
+    try {
+      const results = await Promise.allSettled(ids.map(mid => api.delete(`/media/${mid}`)));
+      const failed = results.filter(r => r.status === 'rejected').length;
+      const succeeded = ids.length - failed;
+      const deletedIds = new Set(
+        ids.filter((_, i) => results[i].status === 'fulfilled')
+      );
+      setMedia(prev => prev.filter(m => !deletedIds.has(m.id)));
+      if (failed === 0) toast.success(`${succeeded} item${succeeded !== 1 ? 's' : ''} deleted`);
+      else toast.error(`${succeeded} deleted, ${failed} failed — check permissions`);
+    } catch (err) {
+      toast.error('Delete failed — please try again');
+    } finally {
+      setSelected(new Set());
+      setSelectMode(false);
+      setDeletingMedia(false);
+      setShowDeleteMedia(false);
     }
   };
 
@@ -79,11 +168,31 @@ export default function EventDetailPage() {
 
   if (!event) return <div className="text-center py-20 text-gray-500">Event not found</div>;
 
-  // Verify if current user is admin OR the creator of the event
   const canModifyEvent = user && (user.role === 'admin' || event.created_by === user.id);
+  const canDeleteMedia = user && ['admin', 'photographer'].includes(user.role);
 
   return (
     <div className="space-y-6">
+      {showDeleteEvent && (
+        <DeleteConfirmModal
+          title="Delete this event?"
+          description="All media in this event will also be deleted. This cannot be undone."
+          onConfirm={handleDeleteEvent}
+          onCancel={() => setShowDeleteEvent(false)}
+          deleting={deletingEvent}
+        />
+      )}
+
+      {showDeleteMedia && (
+        <DeleteConfirmModal
+          title={`Delete ${selected.size} item${selected.size !== 1 ? 's' : ''}?`}
+          description="Selected media will be permanently removed. This cannot be undone."
+          onConfirm={handleDeleteSelectedMedia}
+          onCancel={() => setShowDeleteMedia(false)}
+          deleting={deletingMedia}
+        />
+      )}
+
       {/* Back */}
       <Link to="/events" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-all text-sm">
         <ArrowLeft size={16} /> Back to Events
@@ -99,7 +208,6 @@ export default function EventDetailPage() {
         <div className="p-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              {/* ... existing title and details ... */}
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold">{event.name}</h1>
                 {!event.is_public && <span className="badge bg-yellow-500/20 text-yellow-400 flex items-center gap-1"><Lock size={10} /> Private</span>}
@@ -112,34 +220,32 @@ export default function EventDetailPage() {
                 <span className="flex items-center gap-1"><Camera size={14} />{event.media_count || 0} photos</span>
               </div>
             </div>
-            
+
             {/* Action Buttons */}
-            <div className="flex gap-2 items-center">
+            <div className="flex gap-2 items-center flex-wrap">
               <button onClick={handleShare} className="btn-secondary text-sm">Share</button>
               {qrDataUrl && (
                 <button onClick={() => setShowQR(!showQR)} className="btn-secondary text-sm">
                   <QrCode size={16} /> QR Code
                 </button>
               )}
-              {user && ['admin','photographer','member'].includes(user.role) && (
+              {user && ['admin', 'photographer', 'member'].includes(user.role) && (
                 <Link to={`/upload?event=${id}`} className="btn-primary text-sm">
                   <Upload size={16} /> Upload
                 </Link>
               )}
-              
-              {/* ADDED: Delete Button - Shown only to admin/creator */}
               {canModifyEvent && (
-                <button 
-                  onClick={handleDelete} 
-                  className="px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
+                <button
+                  onClick={() => setShowDeleteEvent(true)}
+                  className="px-3 py-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
                 >
-                  <Trash2 size={16} /> Delete
+                  <Trash2 size={16} /> Delete Event
                 </button>
               )}
             </div>
           </div>
 
-          {/* QR Code modal */}
+          {/* QR Code */}
           {showQR && qrDataUrl && (
             <div className="mt-4 p-4 bg-white rounded-xl inline-block">
               <img src={qrDataUrl} alt="QR Code" className="w-40 h-40" />
@@ -149,26 +255,72 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* Media gallery with infinite scroll */}
+      {/* Media gallery */}
       {media.length === 0 && !loading ? (
         <div className="text-center py-20 text-gray-500">
           <Camera size={40} className="mx-auto mb-3 opacity-30" />
           <p>No photos yet</p>
-          {user && ['admin','photographer','member'].includes(user.role) && (
+          {user && ['admin', 'photographer', 'member'].includes(user.role) && (
             <Link to="/upload" className="btn-primary mt-4 inline-flex">Upload first photo</Link>
           )}
         </div>
       ) : (
-        <InfiniteScroll
-          dataLength={media.length}
-          next={loadMedia}
-          hasMore={hasMore}
-          loader={<div className="flex justify-center py-6"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" /></div>}
-          endMessage={<p className="text-center text-gray-600 py-6 text-sm">All photos loaded</p>}>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {media.map(m => <MediaCard key={m.id} media={m} />)}
-          </div>
-        </InfiniteScroll>
+        <>
+          {/* Gallery toolbar */}
+          {canDeleteMedia && media.length > 0 && (
+            <div className="flex items-center justify-between">
+              {selectMode ? (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button onClick={toggleSelectAll} className="btn-secondary text-sm flex items-center gap-2">
+                    <CheckSquare size={15} />
+                    {selected.size === media.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                  <span className="text-sm text-gray-400">
+                    {selected.size} selected
+                  </span>
+                  {selected.size > 0 && (
+                    <button
+                      onClick={() => setShowDeleteMedia(true)}
+                      className="btn bg-red-600 hover:bg-red-500 text-white text-sm px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors"
+                    >
+                      <Trash2 size={14} /> Delete {selected.size}
+                    </button>
+                  )}
+                  <button onClick={exitSelectMode} className="text-sm text-gray-500 hover:text-white transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSelectMode(true)}
+                  className="btn-secondary text-sm flex items-center gap-2"
+                >
+                  <CheckSquare size={15} /> Select
+                </button>
+              )}
+            </div>
+          )}
+
+          <InfiniteScroll
+            dataLength={media.length}
+            next={loadMedia}
+            hasMore={hasMore}
+            loader={<div className="flex justify-center py-6"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" /></div>}
+            endMessage={<p className="text-center text-gray-600 py-6 text-sm">All photos loaded</p>}
+          >
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {media.map(m => (
+                <MediaCard
+                  key={m.id}
+                  media={m}
+                  selectable={selectMode}
+                  selected={selected.has(m.id)}
+                  onSelect={toggleSelect}
+                />
+              ))}
+            </div>
+          </InfiniteScroll>
+        </>
       )}
     </div>
   );
