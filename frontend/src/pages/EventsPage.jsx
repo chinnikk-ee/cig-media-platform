@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -21,26 +21,36 @@ export default function EventsPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [sortBy, setSortBy] = useState('created_at');
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const pageRef = useRef(1);
+  const loadingRef = useRef(false);
+  const reqRef = useRef(0);
 
   const fetchEvents = async (reset = false) => {
+    if (!reset && loadingRef.current) return;   // guard duplicate "Load more" clicks
+    loadingRef.current = true;
     setLoading(true);
-    const p = reset ? 1 : page;
+    const pageToLoad = reset ? 1 : pageRef.current;
+    const reqId = ++reqRef.current;             // token to discard stale responses
     try {
-      const params = { sort_by: sortBy, page: p, limit: 12 };
+      const params = { sort_by: sortBy, page: pageToLoad, limit: 12 };
       if (search) params.search = search;
       if (category !== 'All') params.category = category;
 
       const res = await api.get('/events', { params });
+      if (reqId !== reqRef.current) return;      // a newer request superseded this one
       const newEvents = res.data.events || [];
-      setEvents(reset ? newEvents : prev => [...prev, ...newEvents]);
+      setEvents(prev => pageToLoad === 1 ? newEvents : [...prev, ...newEvents]);
       setHasMore(newEvents.length === 12);
-      if (!reset) setPage(p + 1);
-    } catch { toast.error('Failed to load events'); } finally { setLoading(false); }
+      pageRef.current = pageToLoad + 1;
+    } catch {
+      if (reqId === reqRef.current) toast.error('Failed to load events');
+    } finally {
+      if (reqId === reqRef.current) { setLoading(false); loadingRef.current = false; }
+    }
   };
 
-  useEffect(() => { setPage(1); fetchEvents(true); }, [search, category, sortBy]);
+  useEffect(() => { fetchEvents(true); }, [search, category, sortBy]);
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
@@ -56,9 +56,10 @@ export default function EventDetailPage() {
   const { joinEvent, leaveEvent } = useSocket();
   const [event, setEvent] = useState(null);
   const [media, setMedia] = useState([]);
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
+  const pageRef = useRef(1);
+  const loadingRef = useRef(false);
   const [showQR, setShowQR] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState(null);
 
@@ -86,16 +87,30 @@ export default function EventDetailPage() {
   }, [id]);
 
   const loadMedia = async () => {
+    if (loadingRef.current) return;          // guard against concurrent/duplicate fetches
+    loadingRef.current = true;
+    const pageToLoad = pageRef.current;
     try {
-      const res = await api.get(`/events/${id}/media`, { params: { page, limit: 20 } });
+      const res = await api.get(`/events/${id}/media`, { params: { page: pageToLoad, limit: 20 } });
       const newMedia = res.data.media || [];
-      setMedia(prev => page === 1 ? newMedia : [...prev, ...newMedia]);
+      setMedia(prev => pageToLoad === 1 ? newMedia : [...prev, ...newMedia]);
       setHasMore(newMedia.length === 20);
-      setPage(p => p + 1);
-    } finally { setLoading(false); }
+      pageRef.current = pageToLoad + 1;
+    } finally {
+      setLoading(false);
+      loadingRef.current = false;
+    }
   };
 
-  useEffect(() => { if (id) loadMedia(); }, [id]);
+  useEffect(() => {
+    if (!id) return;
+    pageRef.current = 1;
+    loadingRef.current = false;
+    setMedia([]);
+    setHasMore(true);
+    setLoading(true);
+    loadMedia();
+  }, [id]);
 
   const handleShare = async () => {
     const url = `${window.location.origin}/events/${id}`;
