@@ -3,7 +3,52 @@ const supabase = require('../config/supabase');
 const sharp = require('sharp');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const { detectFaces, compareFaces, fetchImageBytes } = require('../utils/faceRecognition');
+
+// Cloudinary's synchronous upload endpoint (upload_stream) is capped at 10MB on
+// this account. Larger files (e.g. videos) must use the chunked endpoint
+// (upload_large), which uploads in parts. Each part must be > 5MiB and <= 10MiB,
+// so we use a 6,000,000-byte chunk that sits safely inside that window.
+const CHUNK_THRESHOLD = 9 * 1024 * 1024;        // switch to chunked just under the 10MB cap
+const CHUNK_SIZE = 6000000;
+
+// Upload a small buffer via the fast synchronous stream endpoint.
+const uploadViaStream = (buffer, options) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(options, (err, result) =>
+      err ? reject(err) : resolve(result)
+    );
+    stream.end(buffer);
+  });
+
+// Upload a large buffer via the chunked endpoint. upload_large needs a file
+// path, so we spill the buffer to a temp file and clean it up afterwards.
+const uploadViaChunks = (buffer, options) =>
+  new Promise((resolve, reject) => {
+    const tmpPath = path.join(
+      os.tmpdir(),
+      `cig_upload_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    );
+    fs.writeFile(tmpPath, buffer, (writeErr) => {
+      if (writeErr) return reject(writeErr);
+      cloudinary.uploader.upload_large(
+        tmpPath,
+        { ...options, chunk_size: CHUNK_SIZE },
+        (err, result) => {
+          fs.unlink(tmpPath, () => {}); // best-effort cleanup
+          err ? reject(err) : resolve(result);
+        }
+      );
+    });
+  });
+
+// Pick the right path based on file size.
+const uploadToCloudinary = (file, options) =>
+  file.size > CHUNK_THRESHOLD
+    ? uploadViaChunks(file.buffer, options)
+    : uploadViaStream(file.buffer, options);
 
 // ─── UPLOAD MEDIA ────────────────────────────────────────────
 const uploadMedia = async (req, res) => {
@@ -20,21 +65,30 @@ const uploadMedia = async (req, res) => {
     const uploadedMedia = [];
 
     for (const file of req.files) {
-      // Upload to Cloudinary (storage, thumbnails, watermarked downloads)
-      const uploadResult = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
+      const isVideo = (file.mimetype || '').startsWith('video/');
+
+      // Upload to Cloudinary (storage, thumbnails, watermarked downloads).
+      // Small files go through the fast sync endpoint; large files are
+      // uploaded in chunks to get past the 10MB sync limit.
+      //
+      // Large videos cannot be transformed synchronously during upload, so we
+      // never pass an incoming `transformation` for video — instead we request
+      // an async eager optimization (eager_async) that Cloudinary runs in the
+      // background. Images keep the inline quality/format optimization.
+      const uploadOptions = isVideo
+        ? {
             folder: `cig-platform/${event_id}`,
-            resource_type: 'auto',
-            transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
+            resource_type: 'video',
+            eager: [{ quality: 'auto' }],
+            eager_async: true,
           }
-        );
-        uploadStream.end(file.buffer);
-      });
+        : {
+            folder: `cig-platform/${event_id}`,
+            resource_type: 'image',
+            transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+          };
+
+      const uploadResult = await uploadToCloudinary(file, uploadOptions);
 
       // Get AI tags from Imagga
       let ai_tags = [];
@@ -67,11 +121,16 @@ const uploadMedia = async (req, res) => {
           event_id,
           uploaded_by: req.user.id,
           url: uploadResult.secure_url,
-          thumbnail_url: cloudinary.url(uploadResult.public_id, {
-            width: 400, height: 400, crop: 'fill', quality: 'auto',
-          }),
+          thumbnail_url: isVideo
+            ? cloudinary.url(uploadResult.public_id, {
+                resource_type: 'video', format: 'jpg',
+                width: 400, height: 400, crop: 'fill', quality: 'auto',
+              })
+            : cloudinary.url(uploadResult.public_id, {
+                width: 400, height: 400, crop: 'fill', quality: 'auto',
+              }),
           public_id: uploadResult.public_id,
-          media_type: uploadResult.resource_type === 'video' ? 'video' : 'image',
+          media_type: isVideo ? 'video' : 'image',
           file_name: file.originalname,
           file_size: file.size,
           width: uploadResult.width,

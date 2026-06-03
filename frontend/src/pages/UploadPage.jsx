@@ -19,7 +19,21 @@ export default function UploadPage() {
   }, []);
 
   const onDrop = useCallback(accepted => {
-    const mapped = accepted.map(f => ({
+    const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10MB for photos
+    const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB for videos
+
+    const validated = accepted.filter(f => {
+      const isImage = f.type.startsWith('image/');
+      const maxSize = isImage ? MAX_PHOTO_SIZE : MAX_VIDEO_SIZE;
+      if (f.size > maxSize) {
+        const maxMB = isImage ? 10 : 100;
+        toast.error(`${f.name} exceeds ${maxMB}MB limit`);
+        return false;
+      }
+      return true;
+    });
+
+    const mapped = validated.map(f => ({
       file: f,
       id: Math.random().toString(36).slice(2),
       preview: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
@@ -110,7 +124,7 @@ export default function UploadPage() {
         ) : (
           <>
             <p className="text-gray-300 font-medium">Drag & drop photos or videos here</p>
-            <p className="text-gray-500 text-sm mt-2">or click to browse · Max 100MB per file · Up to 50 files at once</p>
+            <p className="text-gray-500 text-sm mt-2">or click to browse · Max 10MB for photos, 100MB for videos · Up to 50 files at once</p>
           </>
         )}
       </div>
