@@ -1,38 +1,274 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme tokens ──────────────────────────────────────────────────────────── */
+:root {
+  --color-primary-50:  #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-400: #818cf8;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+  --color-primary-900: #312e81;
+
+  --color-dark-900: #0c0c0e;
+  --color-dark-800: #141417;
+  --color-dark-700: #1e1e23;
+  --color-dark-600: #28282f;
+  --color-dark-500: #36363f;
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger:  #ef4444;
+
+  --sidebar-collapsed: 52px;
+  --sidebar-expanded:  220px;
+
+  --radius-card: 14px;
+  --radius-btn:  8px;
+  --radius-chip: 999px;
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
 @layer base {
-  * { box-sizing: border-box; }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
   body {
     @apply bg-dark-900 text-white font-sans;
     margin: 0;
+    letter-spacing: -0.01em;
   }
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-dark-800; }
-  ::-webkit-scrollbar-thumb { @apply bg-dark-500 rounded-full; }
+
+  main { animation: fade-in 0.18s ease-out both; }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-btn);
+  }
+
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-dark-500); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-dark-600); }
 }
 
+/* ─── Components ────────────────────────────────────────────────────────────── */
 @layer components {
+
+  /* ── Buttons ── */
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center gap-2 font-medium text-sm text-white px-4 py-2
+           disabled:opacity-40 disabled:cursor-not-allowed
+           focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
+           focus-visible:ring-offset-dark-900;
+    border-radius: var(--radius-btn);
+    background: var(--color-primary-600);
+    transition: background 175ms ease, transform 175ms ease;
   }
+  .btn-primary:hover:not(:disabled) { background: var(--color-primary-700); }
+  .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+
   .btn-secondary {
-    @apply bg-dark-700 hover:bg-dark-600 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2;
+    @apply inline-flex items-center gap-2 font-medium text-sm text-white px-4 py-2
+           focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
+           focus-visible:ring-offset-dark-900;
+    border-radius: var(--radius-btn);
+    background: var(--color-dark-700);
+    border: 1px solid var(--color-dark-500);
+    transition: background 175ms ease, transform 175ms ease;
   }
+  .btn-secondary:hover { background: var(--color-dark-600); }
+  .btn-secondary:active { transform: scale(0.98); }
+
   .btn-ghost {
-    @apply hover:bg-dark-700 text-gray-400 hover:text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 flex items-center gap-2;
+    @apply inline-flex items-center gap-2 font-medium text-sm text-gray-400 px-3 py-2
+           hover:text-white;
+    border-radius: var(--radius-btn);
+    background: transparent;
+    transition: background 175ms ease, color 175ms ease;
   }
+  .btn-ghost:hover { background: var(--color-dark-700); }
+
+  .btn-danger {
+    @apply inline-flex items-center gap-2 font-medium text-sm px-4 py-2;
+    border-radius: var(--radius-btn);
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    transition: background 175ms ease;
+  }
+  .btn-danger:hover { background: color-mix(in srgb, var(--color-danger) 20%, transparent); }
+
+  /* ── Cards ── */
   .card {
-    @apply bg-dark-800 border border-dark-600 rounded-xl;
+    background: var(--color-dark-800);
+    border: 1px solid var(--color-dark-600);
+    border-radius: var(--radius-card);
   }
+  .card-hover {
+    @apply card;
+    transition: border-color 250ms ease, transform 250ms ease;
+  }
+  .card-hover:hover {
+    border-color: color-mix(in srgb, var(--color-primary-500) 50%, transparent);
+    transform: translateY(-1px);
+  }
+
+  /* ── Inputs ── */
   .input {
-    @apply bg-dark-700 border border-dark-500 text-white rounded-lg px-4 py-2.5 w-full focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all placeholder-gray-500;
+    @apply w-full text-sm text-white placeholder-gray-500 px-4 py-2.5 focus:outline-none;
+    border-radius: var(--radius-btn);
+    background: var(--color-dark-700);
+    border: 1px solid var(--color-dark-500);
+    transition: border-color 175ms ease, box-shadow 175ms ease;
   }
+  .input:focus {
+    border-color: var(--color-primary-500);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-500) 20%, transparent);
+  }
+
+  /* ── Badges ── */
   .badge {
-    @apply text-xs font-medium px-2 py-0.5 rounded-full;
+    @apply inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5;
+    border-radius: var(--radius-chip);
   }
+  .badge-primary {
+    @apply badge;
+    background: color-mix(in srgb, var(--color-primary-500) 18%, transparent);
+    color: var(--color-primary-400);
+  }
+  .badge-success {
+    @apply badge;
+    background: color-mix(in srgb, var(--color-success) 15%, transparent);
+    color: var(--color-success);
+  }
+  .badge-warning {
+    @apply badge;
+    background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+    color: var(--color-warning);
+  }
+  .badge-danger {
+    @apply badge;
+    background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+    color: var(--color-danger);
+  }
+  .badge-neutral {
+    @apply badge;
+    background: var(--color-dark-600);
+    color: #9ca3af;
+  }
+
+  /* Role badges */
+  .badge-role-admin        { @apply badge; background: color-mix(in srgb, #ef4444 15%, transparent); color: #f87171; }
+  .badge-role-photographer { @apply badge; background: color-mix(in srgb, #3b82f6 15%, transparent); color: #60a5fa; }
+  .badge-role-member       { @apply badge; background: color-mix(in srgb, #22c55e 15%, transparent); color: #4ade80; }
+  .badge-role-viewer       { @apply badge; background: var(--color-dark-600); color: #9ca3af; }
+
+  /* ── Skeleton loaders ── */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-dark-700) 25%,
+      var(--color-dark-600) 50%,
+      var(--color-dark-700) 75%
+    );
+    background-size: 400px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: var(--radius-btn);
+  }
+  .skeleton-card  { @apply skeleton; border-radius: var(--radius-card); }
+  .skeleton-text  { @apply skeleton; height: 14px; border-radius: 4px; }
+  .skeleton-round { @apply skeleton; border-radius: 999px; }
+
+  /* ── Section label (nav group headers) ── */
+  .section-label {
+    @apply text-xs font-semibold uppercase;
+    color: var(--color-dark-500);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Glass surface ── */
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--color-dark-800) 80%, transparent);
+    border: 1px solid var(--color-dark-600);
+  }
+
+  /* ── Notification dot ── */
+  .notif-dot {
+    @apply absolute flex items-center justify-center text-white font-bold;
+    top: 4px; right: 4px;
+    min-width: 16px; height: 16px;
+    font-size: 9px;
+    border-radius: 999px;
+    background: var(--color-danger);
+    padding: 0 3px;
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  /* ── Icon button ── */
+  .icon-btn {
+    @apply flex items-center justify-center text-gray-400 hover:text-white relative;
+    width: 36px; height: 36px;
+    border-radius: var(--radius-btn);
+    background: transparent;
+    transition: background 175ms ease, color 175ms ease, transform 175ms ease;
+  }
+  .icon-btn:hover  { background: var(--color-dark-700); }
+  .icon-btn:active { transform: scale(0.95); }
+}
+
+/* ─── Utilities ─────────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Masonry grid */
+  .masonry-grid { columns: 2; column-gap: 12px; }
+  @media (min-width: 768px)  { .masonry-grid { columns: 3; } }
+  @media (min-width: 1280px) { .masonry-grid { columns: 4; } }
+  .masonry-item { break-inside: avoid; margin-bottom: 12px; }
+
+  /* Line-clamp */
+  .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+  .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+
+  /* Image hover scale */
+  .img-hover { overflow: hidden; }
+  .img-hover img { transition: transform 500ms ease; }
+  .img-hover:hover img { transform: scale(1.05); }
+
+  /* Text gradient */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--color-primary-400), var(--color-primary-600));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
+
+/* ─── Keyframes ─────────────────────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.animate-fade-in        { animation: fade-in 0.18s ease-out both; }
+.animate-slide-in-right { animation: slide-in-right 0.22s cubic-bezier(0.4,0,0.2,1) both; }
+.animate-slide-up       { animation: slide-up 0.22s cubic-bezier(0.4,0,0.2,1) both; }

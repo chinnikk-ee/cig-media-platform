@@ -3,10 +3,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',700:'#4338ca',900:'#312e81' },
-        dark: { 900:'#0f0f0f',800:'#1a1a1a',700:'#242424',600:'#2e2e2e',500:'#3a3a3a' }
+        primary: {
+          50:  'var(--color-primary-50)',
+          100: 'var(--color-primary-100)',
+          400: 'var(--color-primary-400)',
+          500: 'var(--color-primary-500)',
+          600: 'var(--color-primary-600)',
+          700: 'var(--color-primary-700)',
+          900: 'var(--color-primary-900)',
+        },
+        dark: {
+          900: 'var(--color-dark-900)',
+          800: 'var(--color-dark-800)',
+          700: 'var(--color-dark-700)',
+          600: 'var(--color-dark-600)',
+          500: 'var(--color-dark-500)',
+        },
       },
-      fontFamily: { sans: ['Inter', 'sans-serif'] }
+      fontFamily: {
+        sans: ['DM Sans', 'sans-serif'],
+        mono: ['DM Mono', 'monospace'],
+      },
     },
   },
   plugins: [],
