@@ -293,7 +293,7 @@ const getDashboardStats = async (req, res) => {
         .limit(10),
       // activity: recent uploads (group-friendly view)
       supabase.from('media')
-        .select('id, file_name, created_at, uploaded_by, event_id, events(name), users!uploaded_by(username)')
+        .select('id, file_name, media_type, created_at, uploaded_by, event_id, events(name), users!uploaded_by(username)')
         .order('created_at', { ascending: false })
         .limit(20),
       // activity: recent role requests
@@ -335,6 +335,8 @@ const getDashboardStats = async (req, res) => {
         Math.abs(new Date(last.latestAt) - new Date(m.created_at)) < 5 * 60 * 1000;
       if (sameContext) {
         last.count++;
+        if (m.media_type === 'video') last.videoCount = (last.videoCount || 0) + 1;
+        else last.photoCount = (last.photoCount || 0) + 1;
         if (new Date(m.created_at) > new Date(last.latestAt)) last.latestAt = m.created_at;
       } else {
         uploadGroups.push({
@@ -343,15 +345,21 @@ const getDashboardStats = async (req, res) => {
           eventName: m.events?.name || 'an event',
           eventId: m.event_id,
           count: 1,
+          photoCount: m.media_type === 'video' ? 0 : 1,
+          videoCount: m.media_type === 'video' ? 1 : 0,
           latestAt: m.created_at,
         });
       }
     });
     uploadGroups.forEach(g => {
+      const parts = [];
+      if (g.videoCount > 0) parts.push(`${g.videoCount} ${g.videoCount === 1 ? 'video' : 'videos'}`);
+      if (g.photoCount > 0) parts.push(`${g.photoCount} ${g.photoCount === 1 ? 'photo' : 'photos'}`);
+      const label = parts.length ? parts.join(' and ') : `${g.count} ${g.count === 1 ? 'file' : 'files'}`;
       feedItems.push({
         id: g.id,
         type: 'upload',
-        message: `${g.count === 1 ? '1 photo' : `${g.count} photos`} uploaded to "${g.eventName}" by @${g.uploadedBy}`,
+        message: `${label} uploaded to "${g.eventName}" by @${g.uploadedBy}`,
         timestamp: g.latestAt,
         meta: { count: g.count, eventName: g.eventName, eventId: g.eventId, uploader: g.uploadedBy },
       });

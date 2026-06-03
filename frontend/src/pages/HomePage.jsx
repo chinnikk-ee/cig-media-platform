@@ -87,7 +87,7 @@ export default function HomePage() {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold truncate">{event.name}</h3>
-                  <p className="text-sm text-gray-400 mt-1">{event.media_count || 0} photos · {event.category || 'General'}</p>
+                  <p className="text-sm text-gray-400 mt-1">{event.media_count || 0} media · {event.category || 'General'}</p>
                   {!event.is_public && <span className="badge bg-yellow-500/20 text-yellow-400 mt-2 inline-block">Private</span>}
                 </div>
               </Link>

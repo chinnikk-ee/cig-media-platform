@@ -4,7 +4,7 @@ import api from '../utils/api';
 import {
   Users, ShieldCheck, Check, X, Camera, Image,
   CalendarDays, Clock, UserPlus, Upload, AlertCircle,
-  ArrowRight, HardDrive, Zap, Flag
+  ArrowRight, HardDrive, Zap, Flag, ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -32,7 +32,7 @@ const FEED_ICONS = {
   role_request: { icon: ShieldCheck, color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
 };
 
-function ActivityFeed({ items, onReview }) {
+function ActivityFeed({ items, onReview, onNavigate }) {
   if (!items.length) return (
     <div className="flex flex-col items-center justify-center py-16 text-gray-600">
       <Clock size={32} className="mb-3 opacity-30" />
@@ -45,19 +45,31 @@ function ActivityFeed({ items, onReview }) {
       {items.map(item => {
         const { icon: Icon, color, bg } = FEED_ICONS[item.type] || FEED_ICONS.join;
         const isPending = item.type === 'role_request' && item.meta?.status === 'pending';
+        const eventId = item.meta?.eventId;
+        const isClickable = !!eventId;
         return (
-          <div key={item.id} className="flex items-start gap-3 px-5 py-3.5 hover:bg-dark-700/50 transition-all">
+          <div
+            key={item.id}
+            onClick={isClickable ? () => onNavigate(`/events/${eventId}`) : undefined}
+            className={`flex items-start gap-3 px-5 py-3.5 hover:bg-dark-700/50 transition-all ${isClickable ? 'cursor-pointer group' : ''}`}
+          >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${bg}`}>
               <Icon size={14} className={color} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-200 leading-snug">{item.message}</p>
+              <p className="text-sm text-gray-200 leading-snug flex items-center gap-1.5 flex-wrap">
+                {item.message}
+                {isClickable && (
+                  <ExternalLink size={11} className="text-gray-500 group-hover:text-primary-400 transition-colors flex-shrink-0" />
+                )}
+              </p>
               <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                 <Clock size={10} /> {timeAgo(item.timestamp)}
+                {isClickable && <span className="text-primary-500/60 group-hover:text-primary-400 transition-colors">· View event</span>}
               </p>
             </div>
             {isPending && (
-              <div className="flex gap-1.5 flex-shrink-0">
+              <div className="flex gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
                 <button onClick={() => onReview(item.meta.requestId, 'approve')}
                   className="text-xs bg-green-500/15 hover:bg-green-500/25 text-green-400 px-2 py-1 rounded transition-all flex items-center gap-1">
                   <Check size={11} /> Approve
@@ -235,7 +247,7 @@ export default function AdminDashboard() {
                 <h3 className="font-semibold text-sm">Activity Feed</h3>
                 <span className="ml-auto text-xs text-gray-500">Chronological · last 25 events</span>
               </div>
-              <ActivityFeed items={activityFeed} onReview={handleReview} />
+              <ActivityFeed items={activityFeed} onReview={handleReview} onNavigate={navigate} />
             </div>
 
             {/* Quick actions — right column */}

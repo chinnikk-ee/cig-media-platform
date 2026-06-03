@@ -155,7 +155,7 @@ export default function SearchPage() {
               <a key={e.id} href={`/events/${e.id}`} className="card p-4 hover:border-primary-500/50 transition-all">
                 <h3 className="font-semibold">{e.name}</h3>
                 <p className="text-sm text-gray-400 mt-1">
-                  {e.category} · {e.media_count} photos
+                  {e.category} · {e.media_count} media
                   {e.event_date && (
                     <span className="ml-2">
                       · {new Date(e.event_date).toLocaleDateString()}

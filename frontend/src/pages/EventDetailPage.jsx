@@ -217,7 +217,17 @@ export default function EventDetailPage() {
               <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
                 {event.event_date && <span className="flex items-center gap-1"><Calendar size={14} />{format(new Date(event.event_date), 'MMMM d, yyyy')}</span>}
                 {event.location && <span className="flex items-center gap-1"><MapPin size={14} />{event.location}</span>}
-                <span className="flex items-center gap-1"><Camera size={14} />{event.media_count || 0} photos</span>
+                <span className="flex items-center gap-1">
+                  <Camera size={14} />
+                  {(() => {
+                    const photos = event.photo_count || 0;
+                    const videos = event.video_count || 0;
+                    const total = event.media_count || 0;
+                    if (photos > 0 && videos > 0) return `${total} photos & videos`;
+                    if (videos > 0) return `${total} videos`;
+                    return `${total} photos`;
+                  })()}
+                </span>
               </div>
             </div>
 
@@ -259,9 +269,9 @@ export default function EventDetailPage() {
       {media.length === 0 && !loading ? (
         <div className="text-center py-20 text-gray-500">
           <Camera size={40} className="mx-auto mb-3 opacity-30" />
-          <p>No photos yet</p>
+          <p>No media yet</p>
           {user && ['admin', 'photographer', 'member'].includes(user.role) && (
-            <Link to="/upload" className="btn-primary mt-4 inline-flex">Upload first photo</Link>
+            <Link to="/upload" className="btn-primary mt-4 inline-flex">Upload first photo or video</Link>
           )}
         </div>
       ) : (
@@ -306,7 +316,7 @@ export default function EventDetailPage() {
             next={loadMedia}
             hasMore={hasMore}
             loader={<div className="flex justify-center py-6"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" /></div>}
-            endMessage={<p className="text-center text-gray-600 py-6 text-sm">All photos loaded</p>}
+            endMessage={<p className="text-center text-gray-600 py-6 text-sm">All media loaded</p>}
           >
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {media.map(m => (

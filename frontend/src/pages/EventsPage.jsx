@@ -99,7 +99,17 @@ export default function EventsPage() {
                 </div>
                 {event.description && <p className="text-gray-400 text-sm mt-1 line-clamp-2">{event.description}</p>}
                 <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                  <span className="flex items-center gap-1"><Camera size={13} /> {event.media_count || 0} photos</span>
+                  <span className="flex items-center gap-1">
+                    <Camera size={13} />
+                    {(() => {
+                      const photos = event.photo_count || 0;
+                      const videos = event.video_count || 0;
+                      const total = event.media_count || 0;
+                      if (photos > 0 && videos > 0) return `${total} photos & videos`;
+                      if (videos > 0) return `${total} videos`;
+                      return `${total} photos`;
+                    })()}
+                  </span>
                   {event.event_date && (
                     <span className="flex items-center gap-1"><Calendar size={13} />
                       {format(new Date(event.event_date), 'MMM d, yyyy')}
