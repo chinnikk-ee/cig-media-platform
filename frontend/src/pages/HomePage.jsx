@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import MediaCard from '../components/MediaCard';
 import { ArrowRight, Camera, Users, Zap } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ export default function HomePage() {
       setEvents(evRes.data.events || []);
       setRecentMedia(mediaRes.data.results?.media || []);
       if (statsRes) setStats(statsRes.data.stats);
-    }).finally(() => setLoading(false));
+    }).catch(() => toast.error('Failed to load home feed')).finally(() => setLoading(false));
   }, []);
 
   return (

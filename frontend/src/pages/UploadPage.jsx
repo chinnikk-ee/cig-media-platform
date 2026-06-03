@@ -13,7 +13,9 @@ export default function UploadPage() {
   const [progress, setProgress] = useState({});
 
   useEffect(() => {
-    api.get('/events?limit=50').then(res => setEvents(res.data.events || []));
+    api.get('/events?limit=50')
+      .then(res => setEvents(res.data.events || []))
+      .catch(() => toast.error('Failed to load events'));
   }, []);
 
   const onDrop = useCallback(accepted => {

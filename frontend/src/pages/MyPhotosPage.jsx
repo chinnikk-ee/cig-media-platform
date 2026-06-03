@@ -19,6 +19,7 @@ export default function MyPhotosPage() {
   const fetchPhotos = useCallback(() => {
     return api.get('/media/my-photos')
       .then(res => setPhotos(res.data.photos || []))
+      .catch(() => toast.error('Failed to load your photos'))
       .finally(() => setLoading(false));
   }, []);
 

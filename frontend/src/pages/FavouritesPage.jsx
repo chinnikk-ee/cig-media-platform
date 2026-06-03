@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import api from '../utils/api';
 import MediaCard from '../components/MediaCard';
 import { Bookmark } from 'lucide-react';
-
+import toast from 'react-hot-toast';
 export default function FavouritesPage() {
   const [favs, setFavs] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    api.get('/social/favourites').then(res => setFavs(res.data.favourites || [])).finally(() => setLoading(false));
+    api.get('/social/favourites').then(res => setFavs(res.data.favourites || [])).catch(() => toast.error('Failed to load favourites')).finally(() => setLoading(false));
   }, []);
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { Camera, Search, Plus, Lock, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 const CATEGORIES = ['All','Photography','Workshop','Trip','Competition','Cultural Fest','Party','Sports','Other'];
 const SORTS = [
@@ -36,7 +37,7 @@ export default function EventsPage() {
       setEvents(reset ? newEvents : prev => [...prev, ...newEvents]);
       setHasMore(newEvents.length === 12);
       if (!reset) setPage(p + 1);
-    } finally { setLoading(false); }
+    } catch { toast.error('Failed to load events'); } finally { setLoading(false); }
   };
 
   useEffect(() => { setPage(1); fetchEvents(true); }, [search, category, sortBy]);

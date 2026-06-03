@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 import MediaCard from '../components/MediaCard';
 import { Search, CalendarDays, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function SearchPage() {
   const [params, setParams] = useSearchParams();
@@ -31,7 +32,7 @@ export default function SearchPage() {
         },
       });
       setResults(res.data.results || {});
-    } finally {
+    } catch { toast.error('Search failed'); } finally {
       setLoading(false);
     }
   };

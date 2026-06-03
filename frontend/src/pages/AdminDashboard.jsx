@@ -149,7 +149,7 @@ export default function AdminDashboard() {
       setStats(prev => prev ? { ...prev, pendingRequests: Math.max(0, prev.pendingRequests - 1) } : prev);
       setQuickActions(prev => prev ? { ...prev, pendingRequests: Math.max(0, prev.pendingRequests - 1) } : prev);
       setRequests(prev => prev.filter(r => r.id !== id));
-    } catch { toast.error('Failed'); }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to review request'); }
   };
 
   const handleRoleChange = async (userId, role) => {

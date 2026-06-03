@@ -20,6 +20,7 @@ export default function RequestAccessPage() {
   useEffect(() => {
     api.get('/admin/my-request')
       .then(res => setExisting(res.data.request))
+      .catch(() => toast.error('Failed to load your request status'))
       .finally(() => setLoading(false));
   }, []);
 

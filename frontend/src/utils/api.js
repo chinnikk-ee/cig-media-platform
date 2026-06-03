@@ -12,11 +12,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto logout on 401
+// Auto logout on 401 — but skip the login/register endpoints so
+// wrong-password errors are passed back to the form's own catch handler.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const url = error.config?.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

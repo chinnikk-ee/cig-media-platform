@@ -19,7 +19,7 @@ export default function MediaDetailPage() {
   const [tagResults, setTagResults] = useState([]);
 
   useEffect(() => {
-    api.get(`/media/${id}`).then(res => setMedia(res.data.media)).finally(() => setLoading(false));
+    api.get(`/media/${id}`).then(res => setMedia(res.data.media)).catch(() => toast.error('Failed to load media')).finally(() => setLoading(false));
     joinMedia(id);
     return () => leaveMedia(id);
   }, [id]);
@@ -31,23 +31,29 @@ export default function MediaDetailPage() {
 
   const handleLike = async () => {
     if (!user) return toast.error('Login to like');
-    const res = await api.post('/social/like', { media_id: id });
-    setMedia(m => ({ ...m, is_liked: res.data.liked, like_count: res.data.like_count }));
+    try {
+      const res = await api.post('/social/like', { media_id: id });
+      setMedia(m => ({ ...m, is_liked: res.data.liked, like_count: res.data.like_count }));
+    } catch { toast.error('Failed to like'); }
   };
 
   const handleFav = async () => {
     if (!user) return toast.error('Login to favourite');
-    const res = await api.post('/social/favourite', { media_id: id });
-    setMedia(m => ({ ...m, is_favourited: res.data.favourited }));
-    toast.success(res.data.favourited ? 'Added to favourites' : 'Removed');
+    try {
+      const res = await api.post('/social/favourite', { media_id: id });
+      setMedia(m => ({ ...m, is_favourited: res.data.favourited }));
+      toast.success(res.data.favourited ? 'Added to favourites' : 'Removed');
+    } catch { toast.error('Failed to update favourites'); }
   };
 
   const handleDownload = async () => {
-    const response = await api.get(`/media/${id}/download`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const a = document.createElement('a'); a.href = url;
-    a.download = `cig-${media.file_name || id}.jpg`; a.click();
-    window.URL.revokeObjectURL(url);
+    try {
+      const response = await api.get(`/media/${id}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a'); a.href = url;
+      a.download = `cig-${media.file_name || id}.jpg`; a.click();
+      window.URL.revokeObjectURL(url);
+    } catch { toast.error('Download failed'); }
   };
 
   const handleShare = async () => {
@@ -68,8 +74,10 @@ export default function MediaDetailPage() {
   };
 
   const handleDeleteComment = async (commentId) => {
-    await api.delete(`/social/comment/${commentId}`);
-    setMedia(m => ({ ...m, comments: m.comments.filter(c => c.id !== commentId) }));
+    try {
+      await api.delete(`/social/comment/${commentId}`);
+      setMedia(m => ({ ...m, comments: m.comments.filter(c => c.id !== commentId) }));
+    } catch { toast.error('Failed to delete comment'); }
   };
 
   const searchUsers = async (q) => {
