@@ -54,9 +54,10 @@ function DeleteConfirmModal({ title, description, onConfirm, onCancel, deleting 
 
 function MediaGridSkeleton() {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className="masonry-grid">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="aspect-square rounded-xl bg-dark-700 animate-pulse" />
+        <div key={i} className="masonry-item skeleton-card rounded-xl bg-dark-700 animate-pulse"
+          style={{ height: 140 + (i % 3) * 60 }} />
       ))}
     </div>
   );
@@ -384,7 +385,7 @@ export default function EventDetailPage() {
               {/* Grid mode toggle */}
               <div className="flex border border-dark-600 rounded-lg overflow-hidden bg-dark-800">
                 <button onClick={() => setGridMode('square')}
-                  className={`px-2.5 py-1.5 transition-colors ${gridMode === 'square' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-white'}`} title="Square grid">
+                  className={`px-2.5 py-1.5 transition-colors ${gridMode === 'square' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-white'}`} title="Masonry grid">
                   <Grid size={14} />
                 </button>
                 <button onClick={() => setGridMode('justified')}
@@ -430,9 +431,9 @@ export default function EventDetailPage() {
             }
           >
             {gridMode === 'square' ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="masonry-grid">
                 {displayMedia.map(m => (
-                  <MediaCard key={m.id} media={m}
+                  <MediaCard key={m.id} media={m} masonry
                     selectable={selectMode} selected={selected.has(m.id)} onSelect={toggleSelect} />
                 ))}
               </div>

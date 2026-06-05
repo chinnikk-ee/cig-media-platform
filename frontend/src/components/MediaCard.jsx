@@ -6,6 +6,20 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 /**
+ * aspectThumb
+ * ───────────
+ * Thumbnails are stored as square Cloudinary crops (c_fill,w_400,h_400).
+ * For masonry we need the image at its real aspect ratio, so rewrite the
+ * transformation segment to an aspect-preserving limit (c_limit,w_500).
+ * Works on existing URLs (no re-upload). Non-Cloudinary / already-limit
+ * URLs are returned unchanged.
+ */
+function aspectThumb(url) {
+  if (!url || !url.includes('/upload/')) return url;
+  return url.replace(/\/upload\/[^/]*c_fill[^/]*\//, '/upload/c_limit,w_500,q_auto/');
+}
+
+/**
  * MediaCard
  * ─────────
  * Two variants:
@@ -60,6 +74,10 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
   };
 
   const isVideo = media.media_type === 'video';
+  // Square crop for uniform grids; aspect-preserving for masonry.
+  const thumbSrc = masonry
+    ? aspectThumb(media.thumbnail_url || media.url)
+    : (media.thumbnail_url || media.url);
 
   return (
     <div className={`group relative card overflow-hidden transition-all duration-200
@@ -76,7 +94,7 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
         {/* Wrap in Link only when not in select mode */}
         {selectable ? (
           <img
-            src={media.thumbnail_url || media.url}
+            src={thumbSrc}
             alt={media.file_name || 'Photo'}
             className="w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
             style={masonry ? { display: 'block' } : { height: '100%' }}
@@ -85,7 +103,7 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
         ) : (
           <Link to={`/media/${media.id}`} className="block">
             <img
-              src={media.thumbnail_url || media.url}
+              src={thumbSrc}
               alt={media.file_name || 'Photo'}
               className="w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
               style={masonry ? { display: 'block' } : { height: '100%' }}
