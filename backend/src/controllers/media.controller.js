@@ -90,31 +90,11 @@ const uploadMedia = async (req, res) => {
 
       const uploadResult = await uploadToCloudinary(file, uploadOptions);
 
-      // Get AI tags from Imagga
-      let ai_tags = [];
-      try {
-        ai_tags = await getImaggaTags(uploadResult.secure_url);
-      } catch (_) {
-        ai_tags = getFilenameTags(file.originalname);
-      }
-
-      // Detect faces with AWS Rekognition (images only)
-      let faces_detected = [];
-      let imageBytes = null;
-      if (uploadResult.resource_type === 'image') {
-        try {
-          imageBytes = await sharp(file.buffer)
-            .rotate()
-            .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
-            .jpeg({ quality: 90 })
-            .toBuffer();
-          const faces = await detectFaces(imageBytes);
-          faces_detected = faces.map((f) => f.BoundingBox);
-        } catch (err) {
-          console.warn('Face detection failed:', err.message);
-        }
-      }
-
+      // Insert the media row immediately after the Cloudinary upload so the
+      // response can return fast. The expensive enrichment steps — Imagga AI
+      // tagging, AWS Rekognition face detection, and face matching — are slow
+      // external calls that don't need to block the upload request. They run
+      // in the background (see enrichMedia) and patch the row when done.
       const { data: media, error: dbError } = await supabase
         .from('media')
         .insert({
@@ -140,9 +120,10 @@ const uploadMedia = async (req, res) => {
           is_public: event.is_public
             ? (is_public !== undefined ? is_public === 'true' : true)
             : false,
-          ai_tags,
+          // Cheap filename-based tags up front; Imagga tags overwrite these
+          // in the background once available.
+          ai_tags: getFilenameTags(file.originalname),
           caption,
-          faces_detected: faces_detected.length > 0 ? faces_detected : null,
         })
         .select()
         .single();
@@ -150,12 +131,10 @@ const uploadMedia = async (req, res) => {
       if (dbError) throw dbError;
       uploadedMedia.push(media);
 
-      // Run face matching in background if faces detected
-      if (faces_detected.length > 0 && imageBytes) {
-        runFaceMatchForNewMedia(media, imageBytes, req.io).catch(err =>
-          console.warn('Face match failed:', err.message)
-        );
-      }
+      // Fire-and-forget background enrichment (tags + faces + matching).
+      enrichMedia(media, file, uploadResult, req.io).catch(err =>
+        console.warn('Media enrichment failed:', err.message)
+      );
     }
 
     req.io.to(`event:${event_id}`).emit('new_media', {
@@ -172,6 +151,53 @@ const uploadMedia = async (req, res) => {
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ success: false, message: 'Upload failed' });
+  }
+};
+
+// ─── BACKGROUND ENRICHMENT ───────────────────────────────────
+// Runs after the upload response has been sent. Fetches Imagga AI tags,
+// detects faces (images only), updates the media row, then kicks off face
+// matching against registered users. Failures here never affect the upload.
+const enrichMedia = async (media, file, uploadResult, io) => {
+  const update = {};
+
+  // Imagga AI tags (falls back to the filename tags already stored on insert)
+  try {
+    const ai_tags = await getImaggaTags(uploadResult.secure_url);
+    if (ai_tags && ai_tags.length > 0) update.ai_tags = ai_tags;
+  } catch (_) { /* keep filename tags */ }
+
+  // Face detection (images only)
+  let faces_detected = [];
+  let imageBytes = null;
+  if (uploadResult.resource_type === 'image') {
+    try {
+      imageBytes = await sharp(file.buffer)
+        .rotate()
+        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 90 })
+        .toBuffer();
+      const faces = await detectFaces(imageBytes);
+      faces_detected = faces.map((f) => f.BoundingBox);
+      if (faces_detected.length > 0) update.faces_detected = faces_detected;
+    } catch (err) {
+      console.warn('Face detection failed:', err.message);
+    }
+  }
+
+  if (Object.keys(update).length > 0) {
+    try {
+      await supabase.from('media').update(update).eq('id', media.id);
+    } catch (err) {
+      console.warn('Media enrichment update failed:', err.message);
+    }
+  }
+
+  // Match this new photo against every registered user's selfie
+  if (faces_detected.length > 0 && imageBytes) {
+    await runFaceMatchForNewMedia(media, imageBytes, io).catch(err =>
+      console.warn('Face match failed:', err.message)
+    );
   }
 };
 

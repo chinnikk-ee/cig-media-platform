@@ -12,6 +12,10 @@ import toast from 'react-hot-toast';
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024;
 
+// How many files to upload at the same time. Each request is independent, so
+// running a few in parallel cuts the total wait dramatically vs. one-at-a-time.
+const UPLOAD_CONCURRENCY = 4;
+
 const fmtSize = (b) => b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`;
 
 /* Searchable event picker — thumbnail + name + date per option */
@@ -148,7 +152,12 @@ export default function UploadPage() {
     try {
       await api.post('/media/upload', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (e) => patchFile(f.id, { progress: Math.round((e.loaded / e.total) * 100) }),
+        onUploadProgress: (e) => {
+          const pct = e.total ? Math.round((e.loaded / e.total) * 100) : 0;
+          // Once the bytes are all sent, the server is still saving the file —
+          // show a "processing" state instead of a misleading stuck-at-100% bar.
+          patchFile(f.id, pct >= 100 ? { progress: 100, status: 'processing' } : { progress: pct });
+        },
       });
       patchFile(f.id, { status: 'done', progress: 100 });
       return true;
@@ -158,14 +167,28 @@ export default function UploadPage() {
     }
   };
 
+  // Run an array of files through uploadOne with a fixed concurrency limit.
+  const runQueue = async (queue) => {
+    let ok = 0, fail = 0, next = 0;
+    const worker = async () => {
+      while (next < queue.length) {
+        const f = queue[next++];
+        (await uploadOne(f)) ? ok++ : fail++;
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(UPLOAD_CONCURRENCY, queue.length) }, worker)
+    );
+    return { ok, fail };
+  };
+
   const handleUpload = async () => {
     if (!selectedEvent) return toast.error('Please select an event');
     const queue = files.filter(f => f.status === 'pending' || f.status === 'failed');
     if (queue.length === 0) return toast.error('Please add files');
 
     setUploading(true);
-    let ok = 0, fail = 0;
-    for (const f of queue) { (await uploadOne(f)) ? ok++ : fail++; }
+    const { ok, fail } = await runQueue(queue);
     setUploading(false);
     if (fail === 0) toast.success(`${ok} file${ok !== 1 ? 's' : ''} uploaded!`);
     else toast.error(`${ok} uploaded, ${fail} failed — retry below`);
@@ -249,6 +272,7 @@ export default function UploadPage() {
               <span className="font-medium">{files.length} file{files.length !== 1 ? 's' : ''}</span>
               <span className="text-gray-500">
                 {counts.uploading ? ` · ${counts.uploading} uploading` : ''}
+                {counts.processing ? ` · ${counts.processing} processing` : ''}
                 {counts.done ? ` · ${counts.done} done` : ''}
                 {counts.failed ? ` · ${counts.failed} failed` : ''}
               </span>
@@ -273,13 +297,14 @@ export default function UploadPage() {
                   </div>
                   {/* progress bar */}
                   <div className="mt-1.5 h-1.5 rounded-full bg-dark-600 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${f.status === 'failed' ? 'bg-red-500' : f.status === 'done' ? 'bg-green-500' : 'bg-primary-500'}`}
-                      style={{ width: `${f.status === 'done' ? 100 : f.status === 'failed' ? 100 : f.progress}%` }} />
+                    <div className={`h-full rounded-full transition-all ${f.status === 'failed' ? 'bg-red-500' : f.status === 'done' ? 'bg-green-500' : f.status === 'processing' ? 'bg-primary-500 animate-pulse' : 'bg-primary-500'}`}
+                      style={{ width: `${f.status === 'done' || f.status === 'failed' || f.status === 'processing' ? 100 : f.progress}%` }} />
                   </div>
                 </div>
                 {/* status / actions */}
                 <div className="flex items-center gap-1.5 flex-shrink-0 w-16 justify-end">
                   {f.status === 'uploading' && <span className="text-xs text-gray-400">{f.progress}%</span>}
+                  {f.status === 'processing' && <span className="text-xs text-primary-400">Saving…</span>}
                   {f.status === 'done' && <CheckCircle size={18} className="text-green-500" />}
                   {f.status === 'failed' && (
                     <button onClick={() => retryFile(f)} disabled={uploading}

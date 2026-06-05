@@ -84,7 +84,6 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen]           = useState(false); // mobile drawer
   const [showNotifs, setShowNotifs]           = useState(false);
   const [showUserMenu, setShowUserMenu]       = useState(false);
-  const [sidebarQuery, setSidebarQuery]       = useState('');
   const sidebarRef  = useRef(null);
   const notifBtnRef = useRef(null);
 
@@ -141,28 +140,6 @@ export default function Layout() {
 
       {/* Nav */}
       <nav className={`flex-1 overflow-y-auto py-3 ${collapsed && !isMobile ? 'px-2' : 'px-3'}`}>
-
-        {/* Global search (expanded / mobile only) */}
-        {(!collapsed || isMobile) && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = sidebarQuery.trim();
-              navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
-              setSidebarQuery('');
-              setMobileOpen(false);
-            }}
-            className="relative mb-2"
-          >
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-            <input
-              value={sidebarQuery}
-              onChange={(e) => setSidebarQuery(e.target.value)}
-              placeholder="Search…"
-              className="w-full bg-dark-700 border border-dark-600 rounded-lg text-sm pl-9 pr-3 py-2 outline-none focus:border-primary-500 placeholder-gray-500"
-            />
-          </form>
-        )}
 
         {groups.browse.length > 0 && (
           <>
