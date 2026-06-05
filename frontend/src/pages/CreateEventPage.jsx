@@ -43,6 +43,8 @@ export default function CreateEventPage() {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Event name is required';
     else if (form.name.trim().length < 3) errs.name = 'Name must be at least 3 characters';
+    if (!form.event_date) errs.event_date = 'Event date is required';
+    if (!form.category) errs.category = 'Please pick a category';
     return errs;
   };
 
@@ -228,9 +230,15 @@ export default function CreateEventPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5 flex items-center gap-1.5">
-                    <Calendar size={12} /> Date
+                    <Calendar size={12} /> Date <span className="text-red-400">*</span>
                   </label>
-                  <input type="date" value={form.event_date} onChange={set('event_date')} className="input text-sm" />
+                  <input type="date" value={form.event_date} onChange={set('event_date')}
+                    className={`input text-sm ${errors.event_date ? 'border-red-500' : ''}`} />
+                  {errors.event_date && (
+                    <p className="flex items-center gap-1.5 text-red-400 text-xs mt-1.5">
+                      <AlertCircle size={12} /> {errors.event_date}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5 flex items-center gap-1.5">
@@ -249,14 +257,14 @@ export default function CreateEventPage() {
             {/* Category visual picker */}
             <div className="card p-5">
               <h2 className="font-medium text-sm text-gray-300 mb-3 flex items-center gap-2">
-                <Tag size={13} /> Category
+                <Tag size={13} /> Category <span className="text-red-400">*</span>
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {CATEGORIES.map(c => (
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setForm({ ...form, category: form.category === c ? '' : c })}
+                    onClick={() => { setForm({ ...form, category: form.category === c ? '' : c }); if (errors.category) setErrors(prev => ({ ...prev, category: null })); }}
                     className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-2 ${
                       form.category === c
                         ? 'border-primary-500 bg-primary-600/15 text-primary-300'
@@ -268,6 +276,11 @@ export default function CreateEventPage() {
                   </button>
                 ))}
               </div>
+              {errors.category && (
+                <p className="flex items-center gap-1.5 text-red-400 text-xs mt-2">
+                  <AlertCircle size={12} /> {errors.category}
+                </p>
+              )}
               {form.category && (
                 <button
                   type="button"

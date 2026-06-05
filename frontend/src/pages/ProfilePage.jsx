@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
-import { User, Shield, Camera } from 'lucide-react';
+import { User, Shield, CalendarDays } from 'lucide-react';
+import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 const ROLE_COLORS = {
@@ -9,6 +10,20 @@ const ROLE_COLORS = {
   photographer: 'bg-blue-500/20 text-blue-400',
   member: 'bg-green-500/20 text-green-400',
   viewer: 'bg-gray-500/20 text-gray-400',
+};
+
+// Avatar ring + banner accent per role
+const ROLE_RING = {
+  admin: 'ring-red-500',
+  photographer: 'ring-blue-500',
+  member: 'ring-green-500',
+  viewer: 'ring-gray-500',
+};
+const ROLE_BANNER = {
+  admin: 'from-red-900/60 via-dark-800 to-dark-800',
+  photographer: 'from-blue-900/60 via-dark-800 to-dark-800',
+  member: 'from-green-900/50 via-dark-800 to-dark-800',
+  viewer: 'from-dark-700 via-dark-800 to-dark-800',
 };
 
 export default function ProfilePage() {
@@ -49,17 +64,29 @@ export default function ProfilePage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Profile</h1>
 
-      {/* Avatar + role */}
-      <div className="card p-6 flex items-center gap-5">
-        <div className="w-16 h-16 rounded-full bg-primary-600 flex items-center justify-center text-2xl font-bold">
-          {user?.username?.[0]?.toUpperCase()}
-        </div>
-        <div>
-          <p className="text-xl font-semibold">@{user?.username}</p>
-          <p className="text-gray-400 text-sm">{user?.email}</p>
-          <span className={`badge mt-2 inline-block capitalize ${ROLE_COLORS[user?.role] || ''}`}>
-            <Shield size={10} className="inline mr-1" />{user?.role}
-          </span>
+      {/* Profile header — banner + ring avatar + role chip */}
+      <div className="card overflow-hidden">
+        <div className={`h-28 bg-gradient-to-r ${ROLE_BANNER[user?.role] || ROLE_BANNER.viewer}`} />
+        <div className="px-6 pb-6 -mt-12">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+            <div className={`w-24 h-24 rounded-full bg-primary-600 flex items-center justify-center text-3xl font-bold ring-4 ${ROLE_RING[user?.role] || ROLE_RING.viewer} ring-offset-4 ring-offset-dark-800 flex-shrink-0`}>
+              {user?.username?.[0]?.toUpperCase()}
+            </div>
+            <div className="sm:pb-1">
+              <p className="text-xl font-semibold">@{user?.username}</p>
+              <p className="text-gray-400 text-sm">{user?.email}</p>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className={`badge capitalize text-sm px-3 py-1 ${ROLE_COLORS[user?.role] || ''}`}>
+                  <Shield size={12} className="inline mr-1" />{user?.role}
+                </span>
+                {user?.created_at && (
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <CalendarDays size={12} /> Joined {format(new Date(user.created_at), 'MMMM yyyy')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

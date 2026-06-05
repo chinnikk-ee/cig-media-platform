@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import {
   Users, ShieldCheck, Check, X, Camera, Image,
   CalendarDays, Clock, UserPlus, Upload, AlertCircle,
-  ArrowRight, HardDrive, Zap, Flag, ExternalLink, Trash2, Plus
+  ArrowRight, HardDrive, Zap, Flag, ExternalLink, Trash2, Plus,
+  Search, ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -128,7 +129,31 @@ export default function AdminDashboard() {
   const [removeTarget, setRemoveTarget] = useState(null); // user object pending removal
   const [removeReason, setRemoveReason] = useState('');
   const [removing, setRemoving] = useState(false);
+  // Users tab: search / filter / sort / inline role popover
+  const [userSearch, setUserSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sort, setSort] = useState({ key: 'created_at', dir: 'desc' });
+  const [rolePopover, setRolePopover] = useState(null);
   const navigate = useNavigate();
+
+  const toggleSort = (key) =>
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+
+  const visibleUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    const filtered = users.filter(u => {
+      const matchesQ = !q || u.username?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      return matchesQ && matchesRole;
+    });
+    const { key, dir } = sort;
+    const mul = dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (key === 'username') return mul * (a.username || '').localeCompare(b.username || '');
+      if (key === 'role') return mul * (ROLES.indexOf(a.role) - ROLES.indexOf(b.role));
+      return mul * ((new Date(a.created_at).getTime() || 0) - (new Date(b.created_at).getTime() || 0));
+    });
+  }, [users, userSearch, roleFilter, sort]);
 
   useEffect(() => { fetchTab(tab); }, [tab]);
 
@@ -382,29 +407,52 @@ export default function AdminDashboard() {
 
       ) : tab === 'users' ? (
         <div className="card overflow-hidden">
-          <div className="p-4 border-b border-dark-600 flex items-center justify-between gap-3">
-            <h3 className="font-medium">All Users <span className="text-gray-500 text-sm">({users.length})</span></h3>
-            <button onClick={() => setShowAddUser(true)}
-              className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1.5">
-              <Plus size={15} /> Add User
-            </button>
+          <div className="p-4 border-b border-dark-600 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-medium">All Users <span className="text-gray-500 text-sm">({visibleUsers.length})</span></h3>
+              <button onClick={() => setShowAddUser(true)}
+                className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1.5">
+                <Plus size={15} /> Add User
+              </button>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                  className="input text-sm pl-9 py-2" placeholder="Search by name or email..." />
+              </div>
+              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+                className="input text-sm py-2 w-40">
+                <option value="all">All roles</option>
+                {ROLES.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
+              </select>
+            </div>
           </div>
-          {users.length === 0 ? (
+          {visibleUsers.length === 0 ? (
             <p className="text-center text-gray-500 py-8 text-sm">No users found</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b border-dark-600">
                   <tr>
-                    <th className="text-left p-4 text-sm font-medium text-gray-400">User</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-400">Joined</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-400">Role</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-400">Change Role</th>
+                    {[
+                      { key: 'username', label: 'User' },
+                      { key: 'created_at', label: 'Joined' },
+                      { key: 'role', label: 'Role' },
+                    ].map(col => (
+                      <th key={col.key} className="text-left p-4 text-sm font-medium text-gray-400">
+                        <button onClick={() => toggleSort(col.key)} className="flex items-center gap-1 hover:text-white transition-colors">
+                          {col.label}
+                          <ChevronDown size={13}
+                            className={`transition-all ${sort.key === col.key ? 'text-primary-400' : 'text-gray-600'} ${sort.key === col.key && sort.dir === 'asc' ? 'rotate-180' : ''}`} />
+                        </button>
+                      </th>
+                    ))}
                     <th className="text-right p-4 text-sm font-medium text-gray-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map(u => (
+                  {visibleUsers.map(u => (
                     <tr key={u.id} className="border-b border-dark-700 hover:bg-dark-700 transition-all">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -419,13 +467,27 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-4 text-gray-400 text-sm">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="p-4">
-                        <span className={`badge capitalize ${ROLE_COLORS[u.role]}`}>{u.role}</span>
-                      </td>
-                      <td className="p-4">
-                        <select value={u.role} onChange={e => handleRoleChange(u.id, e.target.value)}
-                          className="input text-sm py-1.5 w-36">
-                          {ROLES.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
-                        </select>
+                        <div className="relative inline-block">
+                          <button onClick={() => setRolePopover(rolePopover === u.id ? null : u.id)}
+                            className={`badge capitalize ${ROLE_COLORS[u.role]} hover:ring-1 hover:ring-dark-500 transition-all`}>
+                            {u.role} <ChevronDown size={11} />
+                          </button>
+                          {rolePopover === u.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setRolePopover(null)} />
+                              <div className="absolute z-20 mt-1 left-0 card py-1 min-w-[150px] shadow-xl shadow-black/40">
+                                {ROLES.map(r => (
+                                  <button key={r}
+                                    onClick={() => { if (r !== u.role) handleRoleChange(u.id, r); setRolePopover(null); }}
+                                    className={`w-full text-left px-3 py-1.5 text-sm capitalize flex items-center gap-2 hover:bg-dark-700 transition-colors ${r === u.role ? 'text-primary-400' : 'text-gray-300'}`}>
+                                    {r}
+                                    {r === u.role && <Check size={13} className="ml-auto" />}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-right">
                         <button onClick={() => { setRemoveTarget(u); setRemoveReason(''); }}
@@ -442,19 +504,45 @@ export default function AdminDashboard() {
         </div>
 
       ) : (
-        <div className="space-y-5">
-          <div className="card p-5">
-            <h3 className="font-medium mb-3">Select Event</h3>
-            <select value={selectedEvent} onChange={e => setSelectedEvent(e.target.value)} className="input">
-              <option value="">Choose an event...</option>
-              {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-            </select>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Left panel — events list */}
+          <div className="card overflow-hidden">
+            <div className="p-4 border-b border-dark-600">
+              <h3 className="font-medium">Events ({events.length})</h3>
+              <p className="text-sm text-gray-400 mt-1">Pick an event to assign photographers</p>
+            </div>
+            {events.length === 0 ? (
+              <p className="text-center text-gray-500 py-8 text-sm">No events found</p>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto divide-y divide-dark-700">
+                {events.map(ev => {
+                  const active = String(selectedEvent) === String(ev.id);
+                  return (
+                    <button key={ev.id} onClick={() => setSelectedEvent(ev.id)}
+                      className={`w-full flex items-center gap-3 p-4 text-left transition-all ${active ? 'bg-primary-600/15 border-l-2 border-primary-500' : 'border-l-2 border-transparent hover:bg-dark-700'}`}>
+                      <div className="w-10 h-8 rounded-md bg-dark-700 overflow-hidden flex-shrink-0">
+                        {ev.cover_image
+                          ? <img src={ev.cover_image} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center"><Camera size={14} className="text-dark-500" /></div>}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${active ? 'text-primary-300' : ''}`}>{ev.name}</p>
+                        <p className="text-xs text-gray-500">{ev.media_count || 0} media</p>
+                      </div>
+                      {active && <Check size={15} className="text-primary-400 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* Right panel — photographer picker */}
           <div className="card overflow-hidden">
             <div className="p-4 border-b border-dark-600">
               <h3 className="font-medium">Photographers ({photographers.length})</h3>
               <p className="text-sm text-gray-400 mt-1">
-                {selectedEvent ? 'Click Assign to add to the selected event' : 'Select an event above first'}
+                {selectedEvent ? 'Click Assign to add to the selected event' : 'Select an event first'}
               </p>
             </div>
             {photographers.length === 0 ? (

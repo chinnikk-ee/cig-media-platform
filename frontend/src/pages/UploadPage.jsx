@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../utils/api';
 import { Upload, X, CheckCircle, AlertCircle, Image } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function UploadPage() {
+  const [searchParams] = useSearchParams();
+  const presetEvent = searchParams.get('event') || '';
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -14,9 +17,16 @@ export default function UploadPage() {
 
   useEffect(() => {
     api.get('/events?limit=50')
-      .then(res => setEvents(res.data.events || []))
+      .then(res => {
+        const list = res.data.events || [];
+        setEvents(list);
+        // Pre-select the event passed via ?event=<id> (e.g. from an event's Upload button)
+        if (presetEvent && list.some(ev => String(ev.id) === String(presetEvent))) {
+          setSelectedEvent(presetEvent);
+        }
+      })
       .catch(() => toast.error('Failed to load events'));
-  }, []);
+  }, [presetEvent]);
 
   const onDrop = useCallback(accepted => {
     const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10MB for photos
