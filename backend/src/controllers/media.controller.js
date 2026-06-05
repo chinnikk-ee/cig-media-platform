@@ -361,7 +361,10 @@ const getMyPhotos = async (req, res) => {
       .order('confidence', { ascending: false });
 
     if (error) throw error;
-    res.json({ success: true, photos: matches.map(m => m.media).filter(Boolean) });
+    const photos = matches
+      .filter(m => m.media)
+      .map(m => ({ ...m.media, event_name: m.media.events?.name, confidence: m.confidence }));
+    res.json({ success: true, photos });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch your photos' });
   }

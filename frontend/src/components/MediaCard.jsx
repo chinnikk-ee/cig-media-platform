@@ -18,7 +18,7 @@ import toast from 'react-hot-toast';
  *   masonry    — boolean, enables natural-height mode
  *   onUpdate   — optional callback after like/fav changes
  */
-export default function MediaCard({ media, masonry = false, onUpdate, selectable = false, selected = false, onSelect }) {
+export default function MediaCard({ media, masonry = false, onUpdate, selectable = false, selected = false, onSelect, badge = null }) {
   const { user } = useAuth();
   const [liked,     setLiked]     = useState(media.is_liked);
   const [likeCount, setLikeCount] = useState(Number(media.like_count) || 0);
@@ -93,6 +93,9 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
             />
           </Link>
         )}
+
+        {/* Optional overlay badge (e.g. match confidence) */}
+        {badge && <div className="absolute top-2 left-2 z-10">{badge}</div>}
 
         {/* Video play button */}
         {isVideo && !selectable && (

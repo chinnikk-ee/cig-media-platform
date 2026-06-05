@@ -80,27 +80,19 @@ export default function Layout() {
   const location = useLocation();
 
   const [sidebarExpanded, setSidebarExpanded] = useState(false); // desktop hover state
+  const [focusWithin, setFocusWithin]         = useState(false); // keep open while typing
   const [mobileOpen, setMobileOpen]           = useState(false); // mobile drawer
   const [showNotifs, setShowNotifs]           = useState(false);
+  const [showUserMenu, setShowUserMenu]       = useState(false);
+  const [sidebarQuery, setSidebarQuery]       = useState('');
   const sidebarRef  = useRef(null);
   const notifBtnRef = useRef(null);
 
   const navItems = useNavItems(user);
   const isActive = (to) => to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
 
-  // Close mobile drawer on route change
-  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
-
-  // Close notif panel on outside click
-  useEffect(() => {
-    if (!showNotifs) return;
-    const handler = (e) => {
-      if (notifBtnRef.current?.contains(e.target)) return;
-      setMobileOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showNotifs]);
+  // Close transient menus on route change
+  useEffect(() => { setMobileOpen(false); setShowUserMenu(false); setShowNotifs(false); }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -115,7 +107,8 @@ export default function Layout() {
     actions: navItems.filter(n => n.show && n.group === 'actions'),
   };
 
-  const collapsed = !sidebarExpanded; // desktop sidebar state
+  const expanded = sidebarExpanded || focusWithin; // desktop: hover OR focus inside
+  const collapsed = !expanded;
 
   /* ── Sidebar content (shared between desktop & mobile) ──────────────── */
   const SidebarContent = ({ isMobile = false }) => (
@@ -148,6 +141,28 @@ export default function Layout() {
 
       {/* Nav */}
       <nav className={`flex-1 overflow-y-auto py-3 ${collapsed && !isMobile ? 'px-2' : 'px-3'}`}>
+
+        {/* Global search (expanded / mobile only) */}
+        {(!collapsed || isMobile) && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = sidebarQuery.trim();
+              navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
+              setSidebarQuery('');
+              setMobileOpen(false);
+            }}
+            className="relative mb-2"
+          >
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <input
+              value={sidebarQuery}
+              onChange={(e) => setSidebarQuery(e.target.value)}
+              placeholder="Search…"
+              className="w-full bg-dark-700 border border-dark-600 rounded-lg text-sm pl-9 pr-3 py-2 outline-none focus:border-primary-500 placeholder-gray-500"
+            />
+          </form>
+        )}
 
         {groups.browse.length > 0 && (
           <>
@@ -216,36 +231,56 @@ export default function Layout() {
           </button>
         )}
 
-        {/* User row / login buttons */}
+        {/* User avatar → mini popover (profile / role / logout) */}
         {user ? (
-          <div>
-            <div
-              className={`flex items-center gap-3 rounded-lg px-2 py-2 mb-1
-                ${collapsed && !isMobile ? 'justify-center px-0' : ''}`}
-            >
+          <div className="relative">
+            {showUserMenu && (
               <div
-                className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center
-                           text-xs font-semibold text-white flex-shrink-0"
+                className={`absolute z-50 card p-1 shadow-xl shadow-black/40 animate-fade-in
+                  ${collapsed && !isMobile ? 'left-full bottom-0 ml-2 w-52' : 'bottom-full left-0 right-0 mb-2'}`}
               >
+                <div className="px-3 py-2 border-b border-dark-600 mb-1">
+                  <p className="text-sm font-medium truncate">{user.username}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  <span className={`${ROLE_CLASS[user.role] || 'badge-neutral'} capitalize mt-1.5 inline-flex`}>
+                    <Shield size={10} className="mr-1" />{user.role}
+                  </span>
+                </div>
+                <Link
+                  to="/profile"
+                  onClick={() => { setShowUserMenu(false); setMobileOpen(false); }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-dark-700 transition-colors"
+                >
+                  <User size={15} /> Profile
+                </Link>
+                <button
+                  onClick={() => { setShowUserMenu(false); handleLogout(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                >
+                  <LogOut size={15} /> Logout
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => setShowUserMenu(v => !v)}
+              className={`flex items-center gap-3 rounded-lg w-full px-2 py-2 hover:bg-dark-700 transition-all
+                ${collapsed && !isMobile ? 'justify-center px-0' : ''}`}
+              title={collapsed && !isMobile ? user.username : undefined}
+            >
+              <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
                 {user.username?.[0]?.toUpperCase()}
               </div>
               {(!collapsed || isMobile) && (
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate leading-tight">{user.username}</p>
-                  <span className={`${ROLE_CLASS[user.role] || 'badge-neutral'} capitalize mt-0.5`}>
-                    {user.role}
-                  </span>
-                </div>
+                <>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium truncate leading-tight">{user.username}</p>
+                    <span className={`${ROLE_CLASS[user.role] || 'badge-neutral'} capitalize mt-0.5`}>
+                      {user.role}
+                    </span>
+                  </div>
+                  <ChevronRight size={15} className={`text-gray-500 transition-transform ${showUserMenu ? '-rotate-90' : ''}`} />
+                </>
               )}
-            </div>
-            <button
-              onClick={handleLogout}
-              className={`btn-ghost w-full text-gray-400 hover:text-red-400 hover:bg-red-400/10
-                ${collapsed && !isMobile ? 'justify-center px-0' : 'text-sm'}`}
-              title={collapsed && !isMobile ? 'Logout' : undefined}
-            >
-              <LogOut size={16} />
-              {(!collapsed || isMobile) && <span>Logout</span>}
             </button>
           </div>
         ) : (
@@ -272,15 +307,22 @@ export default function Layout() {
         ref={sidebarRef}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
+        onFocusCapture={() => setFocusWithin(true)}
+        onBlurCapture={(e) => { if (!sidebarRef.current?.contains(e.relatedTarget)) setFocusWithin(false); }}
         className={`
           hidden lg:flex flex-col fixed inset-y-0 left-0 z-40
           bg-dark-800 border-r border-dark-600
-          transition-all duration-200 overflow-hidden
+          transition-all duration-200 overflow-visible
         `}
-        style={{ width: sidebarExpanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)' }}
+        style={{ width: expanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)' }}
       >
         <SidebarContent />
       </aside>
+
+      {/* ── User menu backdrop (closes popover on outside click) ─────────── */}
+      {showUserMenu && (
+        <div className="fixed inset-0 z-30" onClick={() => setShowUserMenu(false)} />
+      )}
 
       {/* ── Notification panel (desktop, slides from sidebar edge) ──────── */}
       {showNotifs && (
@@ -291,7 +333,7 @@ export default function Layout() {
           />
           <div
             className="hidden lg:block fixed z-50 top-0 bottom-0 animate-slide-in-right"
-            style={{ left: sidebarExpanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)' }}
+            style={{ left: expanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)' }}
           >
             <NotificationPanel onClose={() => setShowNotifs(false)} />
           </div>
@@ -376,7 +418,7 @@ export default function Layout() {
         <div
           className="hidden lg:block min-h-screen"
           style={{
-            marginLeft: sidebarExpanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)',
+            marginLeft: expanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)',
             transition: 'margin-left 200ms ease',
           }}
         >
