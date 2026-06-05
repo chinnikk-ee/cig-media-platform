@@ -17,7 +17,6 @@ function useNavItems(user) {
     { to: '/search',     icon: Search,     label: 'Search',     group: 'browse', show: true },
     { to: '/favourites', icon: Bookmark,   label: 'Favourites', group: 'myspace', show: !!user && user.role !== 'viewer' },
     { to: '/my-photos',  icon: Camera,     label: 'My Photos',  group: 'myspace', show: !!user },
-    { to: '/profile',    icon: User,       label: 'Profile',    group: 'myspace', show: !!user },
     // role-based actions
     { to: '/admin',        icon: Shield,      label: 'Admin Panel',   group: 'actions', show: !!user && user.role === 'admin' },
     { to: '/events/new',   icon: Plus,        label: 'New Event',     group: 'actions', show: !!user && user.role === 'admin' },

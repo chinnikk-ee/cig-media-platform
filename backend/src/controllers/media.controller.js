@@ -286,17 +286,28 @@ const downloadMedia = async (req, res) => {
     const watermarkText = `${clubName} | ${eventName} | ${userRole}`;
 
     const { width, height } = await sharp(imageBuffer).metadata();
-    const fontSize = Math.max(20, Math.floor(width / 30));
+    // Small, crisp watermark anchored to the bottom-right corner. A thin dark
+    // stroke (paint-order: stroke) keeps the white text legible on light areas.
+    const fontSize = Math.max(12, Math.floor(width / 60));
+    const pad = Math.round(fontSize * 0.9);
     const svgWatermark = `
       <svg width="${width}" height="${height}">
         <style>
-          .wm { fill: rgba(255,255,255,0.6); font-size: ${fontSize}px; font-family: Arial; font-weight: bold; }
+          .wm {
+            fill: rgba(255,255,255,0.9);
+            font-size: ${fontSize}px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            stroke: rgba(0,0,0,0.45);
+            stroke-width: ${Math.max(1, Math.round(fontSize / 12))}px;
+            paint-order: stroke;
+          }
         </style>
-        <text x="50%" y="95%" text-anchor="middle" class="wm">${watermarkText}</text>
+        <text x="${width - pad}" y="${height - pad}" text-anchor="end" class="wm">${watermarkText}</text>
       </svg>`;
 
     const watermarked = await sharp(imageBuffer)
-      .composite([{ input: Buffer.from(svgWatermark), gravity: 'south' }])
+      .composite([{ input: Buffer.from(svgWatermark), gravity: 'southeast' }])
       .jpeg({ quality: 90 })
       .toBuffer();
 
