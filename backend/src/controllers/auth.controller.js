@@ -47,6 +47,35 @@ const register = async (req, res) => {
   }
 };
 
+const DEFAULT_REMOVAL_MESSAGE =
+  'Your account has been removed by an administrator and you no longer have access to the CIG platform.';
+
+// Handle a login attempt for an email that has no active user. If a removal
+// tombstone exists and the password is correct, show the one-time notice and
+// delete the tombstone. Every other case returns the generic invalid response.
+const handleRemovedUser = async (email, password, res) => {
+  const { data: tomb } = await supabase
+    .from('removed_users')
+    .select('id, password_hash, reason')
+    .eq('email', email)
+    .single();
+
+  if (tomb) {
+    const isValid = await bcrypt.compare(password, tomb.password_hash);
+    if (isValid) {
+      // Consume the one-time notice — next attempt gets the generic error.
+      await supabase.from('removed_users').delete().eq('id', tomb.id);
+      return res.status(403).json({
+        success: false,
+        removed: true,
+        message: tomb.reason || DEFAULT_REMOVAL_MESSAGE,
+      });
+    }
+  }
+
+  return res.status(401).json({ success: false, message: 'Invalid email or password' });
+};
+
 // ─── LOGIN ───────────────────────────────────────────────────
 const login = async (req, res) => {
   try {
@@ -64,7 +93,10 @@ const login = async (req, res) => {
       .single();
 
     if (error || !user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
+      // No active account — but this email may belong to a user an admin
+      // removed. If so, show the one-time removal notice (correct password
+      // only), then drop the tombstone so future attempts are generic.
+      return await handleRemovedUser(email, password, res);
     }
 
     const isValid = await bcrypt.compare(password, user.password_hash);

@@ -4,7 +4,7 @@ import api from '../utils/api';
 import {
   Users, ShieldCheck, Check, X, Camera, Image,
   CalendarDays, Clock, UserPlus, Upload, AlertCircle,
-  ArrowRight, HardDrive, Zap, Flag, ExternalLink
+  ArrowRight, HardDrive, Zap, Flag, ExternalLink, Trash2, Plus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -122,6 +122,12 @@ export default function AdminDashboard() {
   const [selectedEvent, setSelectedEvent] = useState('');
   const [assignedMap, setAssignedMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [addForm, setAddForm] = useState({ username: '', email: '', password: '', full_name: '', role: 'viewer', club_name: '' });
+  const [savingUser, setSavingUser] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState(null); // user object pending removal
+  const [removeReason, setRemoveReason] = useState('');
+  const [removing, setRemoving] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => { fetchTab(tab); }, [tab]);
@@ -170,6 +176,38 @@ export default function AdminDashboard() {
       toast.success('Role updated');
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u));
     } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+  };
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    setSavingUser(true);
+    try {
+      const res = await api.post('/admin/users', addForm);
+      toast.success(res.data.message || 'User created');
+      setUsers(prev => [res.data.user, ...prev]);
+      setShowAddUser(false);
+      setAddForm({ username: '', email: '', password: '', full_name: '', role: 'viewer', club_name: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create user');
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    try {
+      await api.delete(`/admin/users/${removeTarget.id}`, { data: { reason: removeReason } });
+      toast.success(`@${removeTarget.username} removed`);
+      setUsers(prev => prev.filter(u => u.id !== removeTarget.id));
+      setRemoveTarget(null);
+      setRemoveReason('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove user');
+    } finally {
+      setRemoving(false);
+    }
   };
 
   const handleAssign = async (photographerId) => {
@@ -344,8 +382,12 @@ export default function AdminDashboard() {
 
       ) : tab === 'users' ? (
         <div className="card overflow-hidden">
-          <div className="p-4 border-b border-dark-600">
+          <div className="p-4 border-b border-dark-600 flex items-center justify-between gap-3">
             <h3 className="font-medium">All Users <span className="text-gray-500 text-sm">({users.length})</span></h3>
+            <button onClick={() => setShowAddUser(true)}
+              className="btn-primary text-sm py-1.5 px-3 flex items-center gap-1.5">
+              <Plus size={15} /> Add User
+            </button>
           </div>
           {users.length === 0 ? (
             <p className="text-center text-gray-500 py-8 text-sm">No users found</p>
@@ -358,6 +400,7 @@ export default function AdminDashboard() {
                     <th className="text-left p-4 text-sm font-medium text-gray-400">Joined</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-400">Role</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-400">Change Role</th>
+                    <th className="text-right p-4 text-sm font-medium text-gray-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -383,6 +426,12 @@ export default function AdminDashboard() {
                           className="input text-sm py-1.5 w-36">
                           {ROLES.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
                         </select>
+                      </td>
+                      <td className="p-4 text-right">
+                        <button onClick={() => { setRemoveTarget(u); setRemoveReason(''); }}
+                          className="inline-flex items-center gap-1.5 text-sm bg-red-500/15 hover:bg-red-500/25 text-red-400 px-3 py-1.5 rounded-lg transition-all">
+                          <Trash2 size={14} /> Remove
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -435,6 +484,93 @@ export default function AdminDashboard() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add User modal */}
+      {showAddUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingUser && setShowAddUser(false)}>
+          <div className="card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2"><UserPlus size={18} className="text-primary-400" /> Add User</h3>
+              <button onClick={() => setShowAddUser(false)} className="text-gray-400 hover:text-white"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleAddUser} className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Username *</label>
+                <input className="input" value={addForm.username} required
+                  onChange={e => setAddForm({ ...addForm, username: e.target.value })} placeholder="janedoe" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Email *</label>
+                <input type="email" className="input" value={addForm.email} required
+                  onChange={e => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@example.com" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Password *</label>
+                <input type="text" className="input" value={addForm.password} required
+                  onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="Temporary password" />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-300 mb-1">Full name</label>
+                <input className="input" value={addForm.full_name}
+                  onChange={e => setAddForm({ ...addForm, full_name: e.target.value })} placeholder="Jane Doe" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Role</label>
+                  <select className="input" value={addForm.role}
+                    onChange={e => setAddForm({ ...addForm, role: e.target.value })}>
+                    {ROLES.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-1">Club</label>
+                  <input className="input" value={addForm.club_name}
+                    onChange={e => setAddForm({ ...addForm, club_name: e.target.value })} placeholder="CIG" />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={() => setShowAddUser(false)}
+                  className="flex-1 py-2 rounded-lg border border-dark-600 text-gray-300 hover:bg-dark-700 transition-all text-sm">Cancel</button>
+                <button type="submit" disabled={savingUser} className="btn-primary flex-1 justify-center py-2 text-sm">
+                  {savingUser ? 'Creating...' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove user confirm modal */}
+      {removeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !removing && setRemoveTarget(null)}>
+          <div className="card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                <AlertCircle size={18} className="text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Remove @{removeTarget.username}?</h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  This permanently deletes the account. They'll be shown the message below
+                  once on their next login attempt, then get the standard error afterwards.
+                </p>
+              </div>
+            </div>
+            <label className="block text-sm text-gray-300 mb-1">Message to show the user (optional)</label>
+            <textarea className="input min-h-[80px] resize-y" value={removeReason}
+              onChange={e => setRemoveReason(e.target.value)}
+              placeholder="e.g. Your account was removed for violating club guidelines. Contact admin@cig.com to appeal." />
+            <div className="flex gap-2 pt-4">
+              <button onClick={() => setRemoveTarget(null)}
+                className="flex-1 py-2 rounded-lg border border-dark-600 text-gray-300 hover:bg-dark-700 transition-all text-sm">Cancel</button>
+              <button onClick={handleDeleteUser} disabled={removing}
+                className="flex-1 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-all text-sm flex items-center justify-center gap-1.5">
+                <Trash2 size={14} /> {removing ? 'Removing...' : 'Remove User'}
+              </button>
+            </div>
           </div>
         </div>
       )}

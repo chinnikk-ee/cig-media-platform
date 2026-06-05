@@ -1,3 +1,4 @@
+const bcrypt = require('bcryptjs');
 const supabase = require('../config/supabase');
 
 // ─── REQUEST ROLE UPGRADE (viewer only) ──────────────────────
@@ -182,6 +183,94 @@ const updateUserRole = async (req, res) => {
     res.json({ success: true, message: `Role updated to ${role}`, user });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to update role' });
+  }
+};
+
+// ─── ADD USER (admin only) ───────────────────────────────────
+const addUser = async (req, res) => {
+  try {
+    const { email, password, username, full_name, role, club_name } = req.body;
+
+    if (!email || !password || !username) {
+      return res.status(400).json({ success: false, message: 'Email, password and username are required' });
+    }
+
+    const allowedRoles = ['viewer', 'member', 'photographer', 'admin'];
+    const userRole = allowedRoles.includes(role) ? role : 'viewer';
+
+    // Reject duplicates against existing users.
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .or(`email.eq.${email},username.eq.${username}`)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return res.status(409).json({ success: false, message: 'Email or username already taken' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 12);
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert({ email, password_hash, username, full_name, role: userRole, club_name })
+      .select('id, email, username, full_name, role, club_name, is_active, created_at')
+      .single();
+
+    if (error) throw error;
+
+    // A new account on this email supersedes any old removal notice.
+    await supabase.from('removed_users').delete().eq('email', email);
+
+    res.status(201).json({ success: true, message: `User @${user.username} created`, user });
+  } catch (err) {
+    console.error('Add user error:', err);
+    res.status(500).json({ success: false, message: 'Failed to create user' });
+  }
+};
+
+// ─── DELETE USER (admin only) — hard delete + removal tombstone ───
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (id === req.user.id) {
+      return res.status(400).json({ success: false, message: "You can't remove your own account" });
+    }
+
+    const { data: target } = await supabase
+      .from('users')
+      .select('id, email, username, full_name, password_hash')
+      .eq('id', id)
+      .single();
+
+    if (!target) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Tombstone first so the removed user can see the one-time notice on their
+    // next login. Upsert on email in case an older tombstone already exists.
+    const { error: tombError } = await supabase
+      .from('removed_users')
+      .upsert({
+        email: target.email,
+        password_hash: target.password_hash,
+        username: target.username,
+        full_name: target.full_name,
+        reason: reason?.trim() || null,
+        removed_by: req.user.id,
+      }, { onConflict: 'email' });
+
+    if (tombError) throw new Error(`tombstone: ${tombError.message}`);
+
+    const { error: delError } = await supabase.from('users').delete().eq('id', id);
+    if (delError) throw new Error(`delete: ${delError.message}`);
+
+    res.json({ success: true, message: `User @${target.username} removed` });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ success: false, message: `Failed to remove user — ${err.message}` });
   }
 };
 
@@ -437,6 +526,6 @@ const getPublicStats = async (req, res) => {
 
 module.exports = {
   requestRole, getMyRequest, getPendingRequests, reviewRequest,
-  getAllUsers, updateUserRole, assignPhotographer, removePhotographer,
+  getAllUsers, updateUserRole, addUser, deleteUser, assignPhotographer, removePhotographer,
   getEventPhotographers, getDashboardStats, getPublicStats
 };
