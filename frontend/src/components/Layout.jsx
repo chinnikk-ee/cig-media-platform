@@ -283,7 +283,14 @@ export default function Layout() {
         ref={sidebarRef}
         onMouseEnter={() => setSidebarExpanded(true)}
         onMouseLeave={() => setSidebarExpanded(false)}
-        onFocusCapture={() => setFocusWithin(true)}
+        onFocusCapture={(e) => {
+          // Only keep the sidebar open for actual text entry — not for buttons/links,
+          // whose lingering focus after a click would otherwise pin it open.
+          const t = e.target;
+          const isTextEntry =
+            t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
+          setFocusWithin(isTextEntry);
+        }}
         onBlurCapture={(e) => { if (!sidebarRef.current?.contains(e.relatedTarget)) setFocusWithin(false); }}
         className={`
           hidden lg:flex flex-col fixed inset-y-0 left-0 z-40

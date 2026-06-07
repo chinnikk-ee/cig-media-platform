@@ -133,7 +133,7 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [sort, setSort] = useState({ key: 'created_at', dir: 'desc' });
-  const [rolePopover, setRolePopover] = useState(null);
+  const [rolePopover, setRolePopover] = useState(null); // { id, top, left }
   const navigate = useNavigate();
 
   const toggleSort = (key) =>
@@ -468,14 +468,19 @@ export default function AdminDashboard() {
                       <td className="p-4 text-gray-400 text-sm">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="p-4">
                         <div className="relative inline-block">
-                          <button onClick={() => setRolePopover(rolePopover === u.id ? null : u.id)}
+                          <button onClick={(e) => {
+                            if (rolePopover?.id === u.id) { setRolePopover(null); return; }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setRolePopover({ id: u.id, top: rect.bottom + 4, left: rect.left });
+                          }}
                             className={`badge capitalize ${ROLE_COLORS[u.role]} hover:ring-1 hover:ring-dark-500 transition-all`}>
                             {u.role} <ChevronDown size={11} />
                           </button>
-                          {rolePopover === u.id && (
+                          {rolePopover?.id === u.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setRolePopover(null)} />
-                              <div className="absolute z-20 mt-1 left-0 card py-1 min-w-[150px] shadow-xl shadow-black/40">
+                              <div className="fixed z-20 card py-1 min-w-[150px] shadow-xl shadow-black/40"
+                                style={{ top: rolePopover.top, left: rolePopover.left }}>
                                 {ROLES.map(r => (
                                   <button key={r}
                                     onClick={() => { if (r !== u.role) handleRoleChange(u.id, r); setRolePopover(null); }}
