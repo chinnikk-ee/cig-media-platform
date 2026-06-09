@@ -6,6 +6,19 @@ I built this with a React frontend and a Node/Express backend, using Postgres (t
 
 ---
 
+## Live Demo
+
+**Deployed app:** https://cig-media-platform-kappa.vercel.app/
+
+**Admin login (for review/testing):**
+
+| Field | Value |
+|---|---|
+| Email | `admin@example.com` |
+| Password | `admin@strongpass` |
+
+---
+
 ## Features
 
 ### Events
