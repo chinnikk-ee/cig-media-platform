@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS media (
   width           INTEGER,
   height          INTEGER,
   is_public       BOOLEAN DEFAULT true,
-  ai_tags         TEXT[],          -- auto-generated tags from Imagga
+  ai_tags         TEXT[],          -- auto-generated tags from AWS Rekognition
   caption         TEXT,            -- AI-generated or manual caption
   faces_detected  JSONB,           -- face bounding boxes & descriptors
   download_count  INTEGER DEFAULT 0,

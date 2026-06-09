@@ -91,8 +91,8 @@ const uploadMedia = async (req, res) => {
       const uploadResult = await uploadToCloudinary(file, uploadOptions);
 
       // Insert the media row immediately after the Cloudinary upload so the
-      // response can return fast. The expensive enrichment steps — Imagga AI
-      // tagging, AWS Rekognition face detection, and face matching — are slow
+      // response can return fast. The expensive enrichment steps — AWS
+      // Rekognition AI tagging, face detection, and face matching — are slow
       // external calls that don't need to block the upload request. They run
       // in the background (see enrichMedia) and patch the row when done.
       const { data: media, error: dbError } = await supabase
@@ -120,8 +120,8 @@ const uploadMedia = async (req, res) => {
           is_public: event.is_public
             ? (is_public !== undefined ? is_public === 'true' : true)
             : false,
-          // Cheap filename-based tags up front; Imagga tags overwrite these
-          // in the background once available.
+          // Cheap filename-based tags up front; Rekognition tags overwrite
+          // these in the background once available.
           ai_tags: getFilenameTags(file.originalname),
           caption,
         })
@@ -155,7 +155,7 @@ const uploadMedia = async (req, res) => {
 };
 
 // ─── BACKGROUND ENRICHMENT ───────────────────────────────────
-// Runs after the upload response has been sent. Fetches Imagga AI tags,
+// Runs after the upload response has been sent. Fetches Rekognition AI tags,
 // detects faces (images only), updates the media row, then kicks off face
 // matching against registered users. Failures here never affect the upload.
 const enrichMedia = async (media, file, uploadResult, io) => {
