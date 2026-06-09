@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Heart, MessageCircle, Download, Bookmark, Play, CheckCircle2, Circle } from 'lucide-react';
+import { Heart, MessageCircle, Download, Bookmark, Play, CheckCircle2, Circle, Lock } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -73,7 +73,8 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
     } catch { toast.error('Download failed'); }
   };
 
-  const isVideo = media.media_type === 'video';
+  const isVideo   = media.media_type === 'video';
+  const isPrivate = media.is_public === false;
   // Square crop for uniform grids; aspect-preserving for masonry.
   const thumbSrc = masonry
     ? aspectThumb(media.thumbnail_url || media.url)
@@ -114,6 +115,17 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
 
         {/* Optional overlay badge (e.g. match confidence) */}
         {badge && <div className="absolute top-2 left-2 z-10">{badge}</div>}
+
+        {/* Private indicator */}
+        {isPrivate && (
+          <div
+            className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/55 flex items-center justify-center"
+            title="Private"
+            aria-label="Private"
+          >
+            <Lock size={12} className="text-white" strokeWidth={2} />
+          </div>
+        )}
 
         {/* Video play button */}
         {isVideo && !selectable && (
