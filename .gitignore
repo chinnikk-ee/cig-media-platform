@@ -6,3 +6,6 @@ build/
 *.log
 .DS_Store
 Thumbs.db
+md_to_pdf.py
+DATA_SCHEMA_AND_ARCHITECTURE.pdf
+DATA_SCHEMA_AND_ARCHITECTURE.html
