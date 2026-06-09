@@ -6,11 +6,17 @@ const search = async (req, res) => {
     const offset = (page - 1) * limit;
     const results = {};
 
+    // Logged-in non-viewers (admin/photographer/member) can search private
+    // content too; anonymous users and viewers only see public items. This
+    // mirrors the visibility rule used in the events controller.
+    const canSeePrivate = req.user && ['admin', 'photographer', 'member'].includes(req.user.role);
+
     if (type === 'all' || type === 'events') {
       let eventsQuery = supabase
         .from('events_with_counts')
-        .select('*')
-        .eq('is_public', true);
+        .select('*');
+
+      if (!canSeePrivate) eventsQuery = eventsQuery.eq('is_public', true);
 
       if (q) eventsQuery = eventsQuery.ilike('name', `%${q}%`);
       if (start_date) eventsQuery = eventsQuery.gte('event_date', start_date);
@@ -27,7 +33,8 @@ const search = async (req, res) => {
     }
 
     if (type === 'all' || type === 'media') {
-      let mediaQuery = supabase.from('media_with_counts').select('*').eq('is_public', true);
+      let mediaQuery = supabase.from('media_with_counts').select('*');
+      if (!canSeePrivate) mediaQuery = mediaQuery.eq('is_public', true);
 
       if (q)          mediaQuery = mediaQuery.ilike('file_name', `%${q}%`);
       if (tags) {
