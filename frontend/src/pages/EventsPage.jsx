@@ -48,9 +48,12 @@ function EventCardGrid({ event }) {
             <Camera size={32} className="text-dark-500" />
           </div>
         )}
-        {/* Bottom gradient */}
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)' }} />
+        {/* Bottom gradient — only over a real cover photo (keeps the chips legible);
+            skipped on the empty placeholder so it doesn't darken the light card */}
+        {event.cover_image && (
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)' }} />
+        )}
         {/* Photo count — bottom-left on image */}
         <div className="absolute bottom-2 left-2">
           <span className="flex items-center gap-1 text-xs font-medium text-white px-2 py-0.5 rounded-full"
