@@ -74,7 +74,7 @@ export default function CreateEventPage() {
     <div className="max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Create Event</h1>
-        <p className="text-gray-400 text-sm mt-1">Set up a new event album for your photos and videos</p>
+        <p className="text-slate-500 text-sm mt-1">Set up a new event album for your photos and videos</p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -85,7 +85,7 @@ export default function CreateEventPage() {
 
             {/* Cover image */}
             <div className="card p-4">
-              <h2 className="font-medium text-sm text-gray-300 mb-3 flex items-center gap-2">
+              <h2 className="font-medium text-sm text-slate-600 mb-3 flex items-center gap-2">
                 <Image size={14} /> Cover Image
               </h2>
               <div
@@ -113,9 +113,9 @@ export default function CreateEventPage() {
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 gap-2 px-4 text-center">
                     <div className="w-10 h-10 rounded-xl bg-dark-600 flex items-center justify-center mb-1">
-                      <Upload size={18} className={isDragActive ? 'text-primary-400' : 'text-gray-500'} />
+                      <Upload size={18} className={isDragActive ? 'text-primary-600' : 'text-gray-500'} />
                     </div>
-                    <p className="text-sm font-medium text-gray-400">
+                    <p className="text-sm font-medium text-slate-500">
                       {isDragActive ? 'Drop it here' : 'Drag & drop'}
                     </p>
                     <p className="text-xs text-gray-600">or click to browse · JPG, PNG, WebP</p>
@@ -127,15 +127,15 @@ export default function CreateEventPage() {
 
             {/* Event Visibility — card buttons */}
             <div className="card p-4">
-              <h2 className="font-medium text-sm text-gray-300 mb-3">Event Visibility</h2>
+              <h2 className="font-medium text-sm text-slate-600 mb-3">Event Visibility</h2>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, is_public: true })}
                   className={`p-3 rounded-xl border transition-all text-left ${form.is_public ? 'border-primary-500 bg-primary-600/15' : 'border-dark-600 hover:border-dark-500'}`}
                 >
-                  <Globe size={16} className={form.is_public ? 'text-primary-400' : 'text-gray-500'} />
-                  <p className={`text-sm font-medium mt-1.5 ${form.is_public ? 'text-primary-300' : 'text-gray-400'}`}>Public</p>
+                  <Globe size={16} className={form.is_public ? 'text-primary-600' : 'text-gray-500'} />
+                  <p className={`text-sm font-medium mt-1.5 ${form.is_public ? 'text-primary-700' : 'text-slate-500'}`}>Public</p>
                   <p className="text-xs text-gray-600 mt-0.5">Visible to everyone</p>
                 </button>
                 <button
@@ -144,7 +144,7 @@ export default function CreateEventPage() {
                   className={`p-3 rounded-xl border transition-all text-left ${!form.is_public ? 'border-yellow-500/60 bg-yellow-500/10' : 'border-dark-600 hover:border-dark-500'}`}
                 >
                   <Lock size={16} className={!form.is_public ? 'text-yellow-400' : 'text-gray-500'} />
-                  <p className={`text-sm font-medium mt-1.5 ${!form.is_public ? 'text-yellow-300' : 'text-gray-400'}`}>Private</p>
+                  <p className={`text-sm font-medium mt-1.5 ${!form.is_public ? 'text-yellow-600' : 'text-slate-500'}`}>Private</p>
                   <p className="text-xs text-gray-600 mt-0.5">Members only</p>
                 </button>
               </div>
@@ -155,11 +155,11 @@ export default function CreateEventPage() {
           {/* RIGHT — Form fields (60%) */}
           <div className="md:col-span-3 space-y-4">
             <div className="card p-5 space-y-4">
-              <h2 className="font-medium text-sm text-gray-300">Event Details</h2>
+              <h2 className="font-medium text-sm text-slate-600">Event Details</h2>
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">
                   Event Name <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -177,7 +177,7 @@ export default function CreateEventPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Description</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">Description</label>
                 <textarea
                   value={form.description}
                   onChange={set('description')}
@@ -189,7 +189,7 @@ export default function CreateEventPage() {
               {/* Date + Location */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5 flex items-center gap-1.5">
                     <Calendar size={12} /> Date <span className="text-red-400">*</span>
                   </label>
                   <input type="date" value={form.event_date} onChange={set('event_date')}
@@ -201,7 +201,7 @@ export default function CreateEventPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1.5 flex items-center gap-1.5">
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5 flex items-center gap-1.5">
                     <MapPin size={12} /> Location
                   </label>
                   <input
@@ -216,7 +216,7 @@ export default function CreateEventPage() {
 
             {/* Category visual picker */}
             <div className="card p-5">
-              <h2 className="font-medium text-sm text-gray-300 mb-3 flex items-center gap-2">
+              <h2 className="font-medium text-sm text-slate-600 mb-3 flex items-center gap-2">
                 <Tag size={13} /> Category <span className="text-red-400">*</span>
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -227,8 +227,8 @@ export default function CreateEventPage() {
                     onClick={() => { setForm({ ...form, category: form.category === c ? '' : c }); if (errors.category) setErrors(prev => ({ ...prev, category: null })); }}
                     className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-all flex items-center gap-2 ${
                       form.category === c
-                        ? 'border-primary-500 bg-primary-600/15 text-primary-300'
-                        : 'border-dark-600 text-gray-400 hover:border-dark-500 hover:text-gray-300'
+                        ? 'border-primary-500 bg-primary-600/15 text-primary-700'
+                        : 'border-dark-600 text-slate-500 hover:border-dark-500 hover:text-slate-600'
                     }`}
                   >
                     <span>{CATEGORY_ICONS[c]}</span>
@@ -245,7 +245,7 @@ export default function CreateEventPage() {
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, category: '' })}
-                  className="mt-2 text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+                  className="mt-2 text-xs text-gray-500 hover:text-slate-600 transition-colors flex items-center gap-1"
                 >
                   <X size={11} /> Clear selection
                 </button>

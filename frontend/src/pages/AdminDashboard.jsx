@@ -13,7 +13,7 @@ const ROLE_COLORS = {
   admin: 'bg-red-500/20 text-red-400',
   photographer: 'bg-blue-500/20 text-blue-400',
   member: 'bg-green-500/20 text-green-400',
-  viewer: 'bg-gray-500/20 text-gray-400',
+  viewer: 'bg-gray-500/20 text-slate-500',
 };
 const ROLES = ['viewer', 'member', 'photographer', 'admin'];
 
@@ -58,15 +58,15 @@ function ActivityFeed({ items, onReview, onNavigate }) {
               <Icon size={14} className={color} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-200 leading-snug flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm text-slate-600 leading-snug flex items-center gap-1.5 flex-wrap">
                 {item.message}
                 {isClickable && (
-                  <ExternalLink size={11} className="text-gray-500 group-hover:text-primary-400 transition-colors flex-shrink-0" />
+                  <ExternalLink size={11} className="text-gray-500 group-hover:text-primary-600 transition-colors flex-shrink-0" />
                 )}
               </p>
               <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                 <Clock size={10} /> {timeAgo(item.timestamp)}
-                {isClickable && <span className="text-primary-500/60 group-hover:text-primary-400 transition-colors">· View event</span>}
+                {isClickable && <span className="text-primary-500/60 group-hover:text-primary-600 transition-colors">· View event</span>}
               </p>
             </div>
             {isPending && (
@@ -100,7 +100,7 @@ function QuickActionBlock({ icon: Icon, color, bg, label, value, sub, onClick, a
           <span className={`text-2xl font-bold ${color}`}>{value}</span>
         )}
       </div>
-      <p className="text-sm font-medium text-white leading-tight">{label}</p>
+      <p className="text-sm font-medium text-slate-800 leading-tight">{label}</p>
       {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
       {actionLabel && onClick && (
         <p className={`text-xs mt-2 flex items-center gap-1 ${color}`}>
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <p className="text-gray-400 mt-1">Platform operations &amp; management</p>
+        <p className="text-slate-500 mt-1">Platform operations &amp; management</p>
       </div>
 
       {/* Tabs */}
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
         {tabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px
-              ${tab === id ? 'border-primary-500 text-primary-400' : 'border-transparent text-gray-400 hover:text-white'}`}>
+              ${tab === id ? 'border-primary-500 text-primary-600' : 'border-transparent text-slate-500 hover:text-slate-900'}`}>
             <Icon size={16} /> {label}
             {id === 'requests' && pendingBadge > 0 && (
               <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -306,7 +306,7 @@ export default function AdminDashboard() {
             {/* Activity feed — left/main column */}
             <div className="lg:col-span-2 card overflow-hidden">
               <div className="px-5 py-4 border-b border-dark-600 flex items-center gap-2">
-                <Clock size={15} className="text-primary-400" />
+                <Clock size={15} className="text-primary-600" />
                 <h3 className="font-semibold text-sm">Activity Feed</h3>
                 <span className="ml-auto text-xs text-gray-500">Chronological · last 25 events</span>
               </div>
@@ -315,7 +315,7 @@ export default function AdminDashboard() {
 
             {/* Quick actions — right column */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Quick Actions</h3>
+              <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Quick Actions</h3>
 
               <QuickActionBlock
                 icon={ShieldCheck}
@@ -345,7 +345,7 @@ export default function AdminDashboard() {
                     <CalendarDays size={16} className="text-orange-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">Unassigned Events</p>
+                    <p className="text-sm font-medium text-slate-800">Unassigned Events</p>
                     <p className="text-xs text-gray-500">{quickActions?.unassignedEvents?.length ?? 0} events without photographers</p>
                   </div>
                 </div>
@@ -353,7 +353,7 @@ export default function AdminDashboard() {
                   <div className="space-y-1.5">
                     {quickActions.unassignedEvents.map(ev => (
                       <button key={ev.id} onClick={() => { setTab('assign'); }}
-                        className="w-full text-left text-xs px-3 py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-gray-300 flex items-center justify-between transition-all">
+                        className="w-full text-left text-xs px-3 py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-slate-600 flex items-center justify-between transition-all">
                         <span className="truncate">{ev.name}</span>
                         <ArrowRight size={11} className="text-orange-400 flex-shrink-0 ml-2" />
                       </button>
@@ -377,15 +377,15 @@ export default function AdminDashboard() {
           ) : requests.map(r => (
             <div key={r.id} className="card p-5 flex items-start justify-between gap-4 flex-wrap">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center font-semibold flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center font-semibold text-white flex-shrink-0">
                   {r.user?.username?.[0]?.toUpperCase()}
                 </div>
                 <div>
                   <p className="font-medium">@{r.user?.username} <span className="text-gray-500 text-sm">({r.user?.email})</span></p>
-                  <p className="text-sm text-gray-400 mt-0.5">
-                    Requesting: <span className="text-white capitalize font-medium">{r.requested_role}</span>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    Requesting: <span className="text-slate-800 capitalize font-medium">{r.requested_role}</span>
                   </p>
-                  {r.reason && <p className="text-sm text-gray-400 mt-1 italic">"{r.reason}"</p>}
+                  {r.reason && <p className="text-sm text-slate-500 mt-1 italic">"{r.reason}"</p>}
                   <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                     <Clock size={11} /> {new Date(r.created_at).toLocaleString()}
                   </p>
@@ -440,15 +440,15 @@ export default function AdminDashboard() {
                       { key: 'created_at', label: 'Joined' },
                       { key: 'role', label: 'Role' },
                     ].map(col => (
-                      <th key={col.key} className="text-left p-4 text-sm font-medium text-gray-400">
-                        <button onClick={() => toggleSort(col.key)} className="flex items-center gap-1 hover:text-white transition-colors">
+                      <th key={col.key} className="text-left p-4 text-sm font-medium text-slate-500">
+                        <button onClick={() => toggleSort(col.key)} className="flex items-center gap-1 hover:text-slate-900 transition-colors">
                           {col.label}
                           <ChevronDown size={13}
-                            className={`transition-all ${sort.key === col.key ? 'text-primary-400' : 'text-gray-600'} ${sort.key === col.key && sort.dir === 'asc' ? 'rotate-180' : ''}`} />
+                            className={`transition-all ${sort.key === col.key ? 'text-primary-600' : 'text-gray-600'} ${sort.key === col.key && sort.dir === 'asc' ? 'rotate-180' : ''}`} />
                         </button>
                       </th>
                     ))}
-                    <th className="text-right p-4 text-sm font-medium text-gray-400">Actions</th>
+                    <th className="text-right p-4 text-sm font-medium text-slate-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -456,7 +456,7 @@ export default function AdminDashboard() {
                     <tr key={u.id} className="border-b border-dark-700 hover:bg-dark-700 transition-all">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-sm font-semibold">
+                          <div className="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-sm font-semibold text-white">
                             {u.username?.[0]?.toUpperCase()}
                           </div>
                           <div>
@@ -465,7 +465,7 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-gray-400 text-sm">{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="p-4 text-slate-500 text-sm">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="p-4">
                         <div className="relative inline-block">
                           <button onClick={(e) => {
@@ -484,7 +484,7 @@ export default function AdminDashboard() {
                                 {ROLES.map(r => (
                                   <button key={r}
                                     onClick={() => { if (r !== u.role) handleRoleChange(u.id, r); setRolePopover(null); }}
-                                    className={`w-full text-left px-3 py-1.5 text-sm capitalize flex items-center gap-2 hover:bg-dark-700 transition-colors ${r === u.role ? 'text-primary-400' : 'text-gray-300'}`}>
+                                    className={`w-full text-left px-3 py-1.5 text-sm capitalize flex items-center gap-2 hover:bg-dark-700 transition-colors ${r === u.role ? 'text-primary-600' : 'text-slate-600'}`}>
                                     {r}
                                     {r === u.role && <Check size={13} className="ml-auto" />}
                                   </button>
@@ -514,7 +514,7 @@ export default function AdminDashboard() {
           <div className="card overflow-hidden">
             <div className="p-4 border-b border-dark-600">
               <h3 className="font-medium">Events ({events.length})</h3>
-              <p className="text-sm text-gray-400 mt-1">Pick an event to assign photographers</p>
+              <p className="text-sm text-slate-500 mt-1">Pick an event to assign photographers</p>
             </div>
             {events.length === 0 ? (
               <p className="text-center text-gray-500 py-8 text-sm">No events found</p>
@@ -531,10 +531,10 @@ export default function AdminDashboard() {
                           : <div className="w-full h-full flex items-center justify-center"><Camera size={14} className="text-dark-500" /></div>}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm font-medium truncate ${active ? 'text-primary-300' : ''}`}>{ev.name}</p>
+                        <p className={`text-sm font-medium truncate ${active ? 'text-primary-700' : ''}`}>{ev.name}</p>
                         <p className="text-xs text-gray-500">{ev.media_count || 0} media</p>
                       </div>
-                      {active && <Check size={15} className="text-primary-400 flex-shrink-0" />}
+                      {active && <Check size={15} className="text-primary-600 flex-shrink-0" />}
                     </button>
                   );
                 })}
@@ -546,7 +546,7 @@ export default function AdminDashboard() {
           <div className="card overflow-hidden">
             <div className="p-4 border-b border-dark-600">
               <h3 className="font-medium">Photographers ({photographers.length})</h3>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-slate-500 mt-1">
                 {selectedEvent ? 'Click Assign to add to the selected event' : 'Select an event first'}
               </p>
             </div>
@@ -555,7 +555,7 @@ export default function AdminDashboard() {
             ) : photographers.map(p => (
               <div key={p.id} className="flex items-center justify-between p-4 border-b border-dark-700 last:border-0 hover:bg-dark-700 transition-all">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center font-semibold text-sm">
+                  <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center font-semibold text-sm text-white">
                     {p.username?.[0]?.toUpperCase()}
                   </div>
                   <div>
@@ -568,7 +568,7 @@ export default function AdminDashboard() {
                   disabled={!selectedEvent || assignedMap[`${selectedEvent}-${p.id}`]}
                   className={`text-sm py-1.5 px-3 rounded-lg transition-all ${
                     assignedMap[`${selectedEvent}-${p.id}`]
-                      ? 'bg-green-500/20 text-green-400 cursor-default'
+                      ? 'bg-green-500/20 text-green-700 cursor-default'
                       : 'btn-primary disabled:opacity-40'
                   }`}>
                   {assignedMap[`${selectedEvent}-${p.id}`]
@@ -586,47 +586,47 @@ export default function AdminDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingUser && setShowAddUser(false)}>
           <div className="card w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2"><UserPlus size={18} className="text-primary-400" /> Add User</h3>
-              <button onClick={() => setShowAddUser(false)} className="text-gray-400 hover:text-white"><X size={18} /></button>
+              <h3 className="text-lg font-semibold flex items-center gap-2"><UserPlus size={18} className="text-primary-600" /> Add User</h3>
+              <button onClick={() => setShowAddUser(false)} className="text-slate-500 hover:text-slate-900"><X size={18} /></button>
             </div>
             <form onSubmit={handleAddUser} className="space-y-3">
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Username *</label>
+                <label className="block text-sm text-slate-600 mb-1">Username *</label>
                 <input className="input" value={addForm.username} required
                   onChange={e => setAddForm({ ...addForm, username: e.target.value })} placeholder="janedoe" />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Email *</label>
+                <label className="block text-sm text-slate-600 mb-1">Email *</label>
                 <input type="email" className="input" value={addForm.email} required
                   onChange={e => setAddForm({ ...addForm, email: e.target.value })} placeholder="jane@example.com" />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Password *</label>
+                <label className="block text-sm text-slate-600 mb-1">Password *</label>
                 <input type="text" className="input" value={addForm.password} required
                   onChange={e => setAddForm({ ...addForm, password: e.target.value })} placeholder="Temporary password" />
               </div>
               <div>
-                <label className="block text-sm text-gray-300 mb-1">Full name</label>
+                <label className="block text-sm text-slate-600 mb-1">Full name</label>
                 <input className="input" value={addForm.full_name}
                   onChange={e => setAddForm({ ...addForm, full_name: e.target.value })} placeholder="Jane Doe" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Role</label>
+                  <label className="block text-sm text-slate-600 mb-1">Role</label>
                   <select className="input" value={addForm.role}
                     onChange={e => setAddForm({ ...addForm, role: e.target.value })}>
                     {ROLES.map(r => <option key={r} value={r} className="capitalize">{r}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">Club</label>
+                  <label className="block text-sm text-slate-600 mb-1">Club</label>
                   <input className="input" value={addForm.club_name}
                     onChange={e => setAddForm({ ...addForm, club_name: e.target.value })} placeholder="CIG" />
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={() => setShowAddUser(false)}
-                  className="flex-1 py-2 rounded-lg border border-dark-600 text-gray-300 hover:bg-dark-700 transition-all text-sm">Cancel</button>
+                  className="flex-1 py-2 rounded-lg border border-dark-600 text-slate-600 hover:bg-dark-700 transition-all text-sm">Cancel</button>
                 <button type="submit" disabled={savingUser} className="btn-primary flex-1 justify-center py-2 text-sm">
                   {savingUser ? 'Creating...' : 'Create User'}
                 </button>
@@ -646,19 +646,19 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">Remove @{removeTarget.username}?</h3>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-slate-500 mt-1">
                   This permanently deletes the account. They'll be shown the message below
                   once on their next login attempt, then get the standard error afterwards.
                 </p>
               </div>
             </div>
-            <label className="block text-sm text-gray-300 mb-1">Message to show the user (optional)</label>
+            <label className="block text-sm text-slate-600 mb-1">Message to show the user (optional)</label>
             <textarea className="input min-h-[80px] resize-y" value={removeReason}
               onChange={e => setRemoveReason(e.target.value)}
               placeholder="e.g. Your account was removed for violating club guidelines. Contact admin@cig.com to appeal." />
             <div className="flex gap-2 pt-4">
               <button onClick={() => setRemoveTarget(null)}
-                className="flex-1 py-2 rounded-lg border border-dark-600 text-gray-300 hover:bg-dark-700 transition-all text-sm">Cancel</button>
+                className="flex-1 py-2 rounded-lg border border-dark-600 text-slate-600 hover:bg-dark-700 transition-all text-sm">Cancel</button>
               <button onClick={handleDeleteUser} disabled={removing}
                 className="flex-1 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-all text-sm flex items-center justify-center gap-1.5">
                 <Trash2 size={14} /> {removing ? 'Removing...' : 'Remove User'}

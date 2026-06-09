@@ -36,8 +36,8 @@ const ROLE_CLASS = {
 /* ── Single nav link ────────────────────────────────────────────────────── */
 function NavLink({ to, icon: Icon, label, active, collapsed, accent, onClick }) {
   const accentColor = accent === 'warning'
-    ? (active ? 'text-yellow-400' : 'text-yellow-500 hover:text-yellow-400')
-    : (active ? 'text-white' : 'text-gray-400 hover:text-white');
+    ? (active ? 'text-yellow-600' : 'text-yellow-600 hover:text-yellow-700')
+    : (active ? 'text-primary-700' : 'text-slate-500 hover:text-slate-900');
 
   return (
     <Link
@@ -193,7 +193,7 @@ export default function Layout() {
             ref={collapsed && !isMobile ? notifBtnRef : undefined}
             onClick={() => setShowNotifs(v => !v)}
             className={`icon-btn mb-1 relative
-              ${collapsed && !isMobile ? 'mx-auto' : 'w-full rounded-lg px-3 py-2.5 justify-start gap-3 text-gray-400 hover:text-white text-sm font-medium'}
+              ${collapsed && !isMobile ? 'mx-auto' : 'w-full rounded-lg px-3 py-2.5 justify-start gap-3 text-slate-500 hover:text-slate-900 text-sm font-medium'}
             `}
             aria-label="Notifications"
           >
@@ -225,13 +225,13 @@ export default function Layout() {
                 <Link
                   to="/profile"
                   onClick={() => { setShowUserMenu(false); setMobileOpen(false); }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:bg-dark-700 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-dark-700 transition-colors"
                 >
                   <User size={15} /> Profile
                 </Link>
                 <button
                   onClick={() => { setShowUserMenu(false); handleLogout(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-300 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:text-red-500 hover:bg-red-400/10 transition-colors"
                 >
                   <LogOut size={15} /> Logout
                 </button>
@@ -432,7 +432,7 @@ export default function Layout() {
             key={to}
             to={to}
             className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-all
-              ${isActive(to) ? 'text-primary-400' : 'text-gray-500 hover:text-white'}`}
+              ${isActive(to) ? 'text-primary-600' : 'text-slate-500 hover:text-slate-900'}`}
           >
             <Icon size={20} />
             <span className="text-[10px] font-medium">{label}</span>

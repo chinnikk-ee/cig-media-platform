@@ -209,35 +209,35 @@ export default function UploadPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Upload Media</h1>
-        <p className="text-gray-400 mt-1">Upload photos and videos to an event album</p>
+        <p className="text-slate-500 mt-1">Upload photos and videos to an event album</p>
       </div>
 
       {/* Event selector + visibility */}
       <div className="card p-6 space-y-5">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Select Event *</label>
+          <label className="block text-sm font-medium text-slate-600 mb-2">Select Event *</label>
           <EventPicker events={events} value={selectedEvent} onChange={setSelectedEvent} />
-          <Link to="/events/new" className="inline-flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 mt-2">
+          <Link to="/events/new" className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 mt-2">
             <Plus size={12} /> Create new event
           </Link>
         </div>
 
         {/* Prominent visibility toggle */}
         {isPrivateEvent ? (
-          <div className="flex items-center gap-2 text-sm text-gray-300 bg-dark-700 rounded-lg px-3 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-slate-600 bg-dark-700 rounded-lg px-3 py-2.5">
             <Lock size={15} className="text-yellow-400" />
             Private event — all uploaded media will be private.
           </div>
         ) : (
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Media visibility</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Media visibility</label>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setIsPublic(true)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all ${isPublic ? 'border-primary-500 bg-primary-600/15 text-primary-300' : 'border-dark-600 text-gray-400 hover:border-dark-500'}`}>
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all ${isPublic ? 'border-primary-500 bg-primary-600/15 text-primary-700' : 'border-dark-600 text-slate-500 hover:border-dark-500'}`}>
                 <Globe size={15} /> Public
               </button>
               <button type="button" onClick={() => setIsPublic(false)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all ${!isPublic ? 'border-yellow-500/60 bg-yellow-500/10 text-yellow-300' : 'border-dark-600 text-gray-400 hover:border-dark-500'}`}>
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-all ${!isPublic ? 'border-yellow-500/60 bg-yellow-500/10 text-yellow-700' : 'border-dark-600 text-slate-500 hover:border-dark-500'}`}>
                 <Lock size={15} /> Private
               </button>
             </div>
@@ -257,7 +257,7 @@ export default function UploadPage() {
           <p className="text-primary-400 font-medium">Drop files to add them</p>
         ) : (
           <>
-            <p className="text-gray-200 font-medium text-lg">Drag & drop photos or videos</p>
+            <p className="text-slate-600 font-medium text-lg">Drag & drop photos or videos</p>
             <p className="text-gray-500 text-sm mt-2">or click to browse · Max 10MB photos, 100MB videos · Up to 50 files</p>
           </>
         )}
@@ -268,7 +268,7 @@ export default function UploadPage() {
         <div className="card p-4 space-y-3">
           {/* Summary row */}
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-slate-600">
               <span className="font-medium">{files.length} file{files.length !== 1 ? 's' : ''}</span>
               <span className="text-gray-500">
                 {counts.uploading ? ` · ${counts.uploading} uploading` : ''}
@@ -278,7 +278,7 @@ export default function UploadPage() {
               </span>
             </p>
             <button onClick={() => setFiles([])} disabled={uploading}
-              className="text-sm text-gray-400 hover:text-red-400 disabled:opacity-40">Clear all</button>
+              className="text-sm text-slate-500 hover:text-red-400 disabled:opacity-40">Clear all</button>
           </div>
 
           {/* Per-file rows */}
@@ -303,7 +303,7 @@ export default function UploadPage() {
                 </div>
                 {/* status / actions */}
                 <div className="flex items-center gap-1.5 flex-shrink-0 w-16 justify-end">
-                  {f.status === 'uploading' && <span className="text-xs text-gray-400">{f.progress}%</span>}
+                  {f.status === 'uploading' && <span className="text-xs text-slate-500">{f.progress}%</span>}
                   {f.status === 'processing' && <span className="text-xs text-primary-400">Saving…</span>}
                   {f.status === 'done' && <CheckCircle size={18} className="text-green-500" />}
                   {f.status === 'failed' && (
@@ -332,7 +332,7 @@ export default function UploadPage() {
           </div>
           <div>
             <p className="font-semibold">All {counts.done} file{counts.done !== 1 ? 's' : ''} uploaded!</p>
-            <p className="text-sm text-gray-400 mt-1">Your media is now in the album.</p>
+            <p className="text-sm text-slate-500 mt-1">Your media is now in the album.</p>
           </div>
           <div className="flex gap-3 justify-center flex-wrap">
             {selectedEvent && (

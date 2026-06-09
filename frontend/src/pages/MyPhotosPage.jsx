@@ -108,8 +108,8 @@ export default function MyPhotosPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-400" />
             ) : (
               <>
-                <User size={56} className="text-dark-500 group-hover:text-primary-400 transition-colors" strokeWidth={1.25} />
-                <span className="absolute bottom-7 flex items-center gap-1 text-xs text-gray-500 group-hover:text-primary-400 transition-colors">
+                <User size={56} className="text-dark-500 group-hover:text-primary-600 transition-colors" strokeWidth={1.25} />
+                <span className="absolute bottom-7 flex items-center gap-1 text-xs text-gray-500 group-hover:text-primary-600 transition-colors">
                   <Upload size={11} /> Selfie
                 </span>
               </>
@@ -117,7 +117,7 @@ export default function MyPhotosPage() {
           </button>
 
           <h1 className="text-2xl font-bold mt-6">Find yourself in every event</h1>
-          <p className="text-gray-400 mt-2 max-w-md mx-auto">
+          <p className="text-slate-500 mt-2 max-w-md mx-auto">
             Upload a selfie and our AI facial recognition will surface every photo you appear in across all events.
           </p>
           <button onClick={openPicker} disabled={uploading} className="btn-primary mt-6">
@@ -129,8 +129,8 @@ export default function MyPhotosPage() {
             {STEPS.map((s, i) => (
               <div key={s.title} className="card p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-7 h-7 rounded-full bg-primary-600/20 text-primary-400 flex items-center justify-center text-xs font-bold">{i + 1}</span>
-                  <s.icon size={16} className="text-primary-400" />
+                  <span className="w-7 h-7 rounded-full bg-primary-600/20 text-primary-600 flex items-center justify-center text-xs font-bold">{i + 1}</span>
+                  <s.icon size={16} className="text-primary-600" />
                 </div>
                 <p className="font-medium text-sm">{s.title}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{s.desc}</p>
@@ -149,7 +149,7 @@ export default function MyPhotosPage() {
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold flex items-center gap-3">
-          <Scan size={24} className="text-primary-400" /> My Photos
+          <Scan size={24} className="text-primary-600" /> My Photos
         </h1>
         {/* Selfie thumb + update */}
         <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function MyPhotosPage() {
       {/* Scanning banner */}
       {scanning && (
         <div className="card p-4 flex items-center gap-3">
-          <ScanFace size={18} className="text-primary-400 flex-shrink-0" />
+          <ScanFace size={18} className="text-primary-600 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium">Scanning events for your face…</p>
             <div className="mt-2 h-1.5 rounded-full bg-dark-700 overflow-hidden">
@@ -206,7 +206,7 @@ export default function MyPhotosPage() {
                 <div className="flex items-center justify-between mb-3">
                   {group.eventId ? (
                     <Link to={`/events/${group.eventId}`}
-                      className="section-label hover:text-primary-400 transition-colors flex items-center gap-1">
+                      className="section-label hover:text-primary-600 transition-colors flex items-center gap-1">
                       {group.eventName} <ArrowRight size={12} />
                     </Link>
                   ) : (

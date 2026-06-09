@@ -86,14 +86,14 @@ export default function FavouritesPage() {
         {favs.length > 0 && (
           selectMode ? (
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-sm text-gray-400">{selected.size} selected</span>
+              <span className="text-sm text-slate-500">{selected.size} selected</span>
               {selected.size > 0 && (
                 <button onClick={handleBulkRemove} disabled={removing}
                   className="btn bg-red-600 hover:bg-red-500 text-white text-sm px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50">
                   <Trash2 size={14} /> {removing ? 'Removing…' : `Remove ${selected.size}`}
                 </button>
               )}
-              <button onClick={exitSelectMode} className="text-sm text-gray-500 hover:text-white transition-colors">Cancel</button>
+              <button onClick={exitSelectMode} className="text-sm text-gray-500 hover:text-slate-900 transition-colors">Cancel</button>
             </div>
           ) : (
             <button onClick={() => setSelectMode(true)} className="btn-secondary text-sm flex items-center gap-2">

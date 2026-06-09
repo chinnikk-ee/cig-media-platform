@@ -185,7 +185,7 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
 
           <Link
             to={`/media/${media.id}`}
-            className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-white transition-all"
+            className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-slate-900 transition-all"
             aria-label="View comments"
           >
             <MessageCircle size={15} strokeWidth={1.75} />
@@ -206,7 +206,7 @@ export default function MediaCard({ media, masonry = false, onUpdate, selectable
 
           <button
             onClick={handleDownload}
-            className="icon-btn w-7 h-7 text-gray-500 hover:text-white"
+            className="icon-btn w-7 h-7 text-gray-500 hover:text-slate-900"
             aria-label="Download"
           >
             <Download size={14} strokeWidth={1.75} />

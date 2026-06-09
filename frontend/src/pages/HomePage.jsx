@@ -34,7 +34,7 @@ function StatItem({ label, target, fallback }) {
   return (
     <div className="flex-1 px-5 py-4 text-center">
       <p className="text-2xl font-bold tracking-tight">{display}</p>
-      <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">{label}</p>
+      <p className="text-xs text-slate-500 mt-0.5 uppercase tracking-wide">{label}</p>
     </div>
   );
 }
@@ -118,16 +118,16 @@ export default function HomePage() {
             </div>
             <div
               className="absolute inset-0"
-              style={{ background: 'linear-gradient(to right, #141417 28%, rgba(20,20,23,0.7) 55%, rgba(20,20,23,0.55))' }}
+              style={{ background: 'linear-gradient(to right, #ffffff 26%, rgba(255,255,255,0.82) 52%, rgba(255,255,255,0.6))' }}
             />
           </div>
         )}
 
         <div className="relative z-10 max-w-xl">
           <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 md:mb-4 leading-tight">
-            Your Club's <span className="text-primary-400">Media Hub</span>
+            Your Club's <span className="text-primary-600">Media Hub</span>
           </h1>
-          <p className="text-gray-300 text-sm md:text-lg mb-6 md:mb-8">
+          <p className="text-slate-600 text-sm md:text-lg mb-6 md:mb-8">
             Upload, organize, and share event photos. AI-powered tagging, facial recognition, and real-time collaboration.
           </p>
           <div className="flex flex-wrap items-center gap-3 md:gap-4">
@@ -137,7 +137,7 @@ export default function HomePage() {
             {user
               ? <Link to="/upload" className="btn-secondary px-5 md:px-6 py-2.5 md:py-3">Upload Photos</Link>
               : <Link to="/register" className="btn-secondary px-5 md:px-6 py-2.5 md:py-3">Get Started</Link>}
-            <Link to="/my-photos" className="btn-ghost px-3 py-2.5 md:py-3 text-primary-400 hover:text-primary-300">
+            <Link to="/my-photos" className="btn-ghost px-3 py-2.5 md:py-3 text-primary-600 hover:text-primary-700">
               <ScanFace size={16} /> Find my face
             </Link>
           </div>
@@ -154,7 +154,7 @@ export default function HomePage() {
         <section>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-semibold">Recent Events</h2>
-            <Link to="/events" className="text-primary-400 hover:text-primary-300 text-sm flex items-center gap-1">
+            <Link to="/events" className="text-primary-600 hover:text-primary-700 text-sm flex items-center gap-1">
               View all <ArrowRight size={14} />
             </Link>
           </div>
@@ -179,8 +179,8 @@ export default function HomePage() {
                 </div>
                 <div className="p-4">
                   <h3 className="font-semibold truncate">{event.name}</h3>
-                  <p className="text-sm text-gray-400 mt-1">{event.media_count || 0} media · {event.category || 'General'}</p>
-                  {!event.is_public && <span className="badge bg-yellow-500/20 text-yellow-400 mt-2 inline-block">Private</span>}
+                  <p className="text-sm text-slate-500 mt-1">{event.media_count || 0} media · {event.category || 'General'}</p>
+                  {!event.is_public && <span className="badge bg-yellow-500/20 text-yellow-700 mt-2 inline-block">Private</span>}
                 </div>
               </Link>
             ))}
@@ -193,7 +193,7 @@ export default function HomePage() {
         <section>
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-semibold">Recent Photos</h2>
-            <Link to="/search" className="text-primary-400 hover:text-primary-300 text-sm flex items-center gap-1">
+            <Link to="/search" className="text-primary-600 hover:text-primary-700 text-sm flex items-center gap-1">
               Browse all <ArrowRight size={14} />
             </Link>
           </div>

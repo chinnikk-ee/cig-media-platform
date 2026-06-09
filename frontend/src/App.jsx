@@ -56,14 +56,14 @@ const AppRoutes = () => (
         duration: 4000,
         style: {
           background: 'var(--color-dark-800)',
-          color: '#f3f4f6',
+          color: '#1f2a26',
           border: '1px solid var(--color-dark-600)',
           borderRadius: '10px',
           fontSize: '13px',
           fontFamily: 'DM Sans, sans-serif',
           padding: '10px 14px',
           maxWidth: '320px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+          boxShadow: '0 8px 24px rgba(16,32,26,0.12)',
         },
         success: {
           iconTheme: { primary: '#22c55e', secondary: 'var(--color-dark-800)' },

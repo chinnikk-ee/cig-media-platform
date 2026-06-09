@@ -78,7 +78,7 @@ export default function EmptyState({
       </div>
 
       {/* Text */}
-      <h3 className={`font-semibold text-white ${s.title} mb-1`}>{title}</h3>
+      <h3 className={`font-semibold text-slate-800 ${s.title} mb-1`}>{title}</h3>
       {message && (
         <p className={`text-gray-500 max-w-xs leading-relaxed ${s.msg} mb-5`}>{message}</p>
       )}

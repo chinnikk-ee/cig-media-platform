@@ -69,12 +69,12 @@ export default function ProfilePage() {
         <div className={`h-28 bg-gradient-to-r ${ROLE_BANNER[user?.role] || ROLE_BANNER.viewer}`} />
         <div className="px-6 pb-6 -mt-12">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-            <div className={`w-24 h-24 rounded-full bg-primary-600 flex items-center justify-center text-3xl font-bold ring-4 ${ROLE_RING[user?.role] || ROLE_RING.viewer} ring-offset-4 ring-offset-dark-800 flex-shrink-0`}>
+            <div className={`w-24 h-24 rounded-full bg-primary-600 text-white flex items-center justify-center text-3xl font-bold ring-4 ${ROLE_RING[user?.role] || ROLE_RING.viewer} ring-offset-4 ring-offset-dark-800 flex-shrink-0`}>
               {user?.username?.[0]?.toUpperCase()}
             </div>
             <div className="sm:pb-1">
               <p className="text-xl font-semibold">@{user?.username}</p>
-              <p className="text-gray-400 text-sm">{user?.email}</p>
+              <p className="text-slate-500 text-sm">{user?.email}</p>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <span className={`badge capitalize text-sm px-3 py-1 ${ROLE_COLORS[user?.role] || ''}`}>
                   <Shield size={12} className="inline mr-1" />{user?.role}
@@ -95,7 +95,7 @@ export default function ProfilePage() {
         <h2 className="font-semibold mb-4 flex items-center gap-2"><User size={18} /> Edit Profile</h2>
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Full Name</label>
             <input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })}
               className="input" placeholder="Your full name" />
           </div>
@@ -110,19 +110,19 @@ export default function ProfilePage() {
         <h2 className="font-semibold mb-4 flex items-center gap-2"><Shield size={18} /> Change Password</h2>
         <form onSubmit={handlePwChange} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Current Password</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Current Password</label>
             <input type="password" value={pwForm.current_password}
               onChange={e => setPwForm({ ...pwForm, current_password: e.target.value })}
               className="input" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">New Password</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">New Password</label>
             <input type="password" value={pwForm.new_password}
               onChange={e => setPwForm({ ...pwForm, new_password: e.target.value })}
               className="input" minLength={8} required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Confirm New Password</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Confirm New Password</label>
             <input type="password" value={pwForm.confirm_password}
               onChange={e => setPwForm({ ...pwForm, confirm_password: e.target.value })}
               className="input" minLength={8} required />

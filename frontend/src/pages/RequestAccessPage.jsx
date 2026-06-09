@@ -45,7 +45,7 @@ export default function RequestAccessPage() {
       <div className="max-w-lg mx-auto text-center py-20">
         <CheckCircle size={48} className="text-green-400 mx-auto mb-4" />
         <h1 className="text-2xl font-bold">You already have {user?.role} access</h1>
-        <p className="text-gray-400 mt-2">You can access all features available to your role.</p>
+        <p className="text-slate-500 mt-2">You can access all features available to your role.</p>
       </div>
     );
   }
@@ -62,11 +62,11 @@ export default function RequestAccessPage() {
             <Icon size={24} className={style.color} />
             <h2 className={`font-semibold text-lg ${style.color}`}>{style.label}</h2>
           </div>
-          <p className="text-gray-300">
-            Your request for <span className="font-medium text-white capitalize">{existing.requested_role}</span> access is {existing.status}.
+          <p className="text-slate-600">
+            Your request for <span className="font-medium text-slate-800 capitalize">{existing.requested_role}</span> access is {existing.status}.
           </p>
           {existing.reason && (
-            <p className="text-gray-400 text-sm mt-3 italic">"{existing.reason}"</p>
+            <p className="text-slate-500 text-sm mt-3 italic">"{existing.reason}"</p>
           )}
           {existing.status === 'rejected' && (
             <button onClick={() => setExisting(null)} className="btn-primary mt-4 text-sm">
@@ -84,7 +84,7 @@ export default function RequestAccessPage() {
         <h1 className="text-2xl font-bold flex items-center gap-3">
           <ShieldCheck size={24} className="text-primary-400" /> Request Access
         </h1>
-        <p className="text-gray-400 mt-1">Request an elevated role from the admin</p>
+        <p className="text-slate-500 mt-1">Request an elevated role from the admin</p>
       </div>
 
       {/* Role comparison */}
@@ -92,7 +92,7 @@ export default function RequestAccessPage() {
         <div className={`card p-4 cursor-pointer transition-all ${form.requested_role === 'member' ? 'border-primary-500' : ''}`}
           onClick={() => setForm({ ...form, requested_role: 'member' })}>
           <h3 className="font-semibold mb-2">Club Member</h3>
-          <ul className="text-sm text-gray-400 space-y-1">
+          <ul className="text-sm text-slate-500 space-y-1">
             <li>✅ View private events</li>
             <li>✅ Like & comment photos</li>
             <li>✅ Add to favourites</li>
@@ -102,7 +102,7 @@ export default function RequestAccessPage() {
         <div className={`card p-4 cursor-pointer transition-all ${form.requested_role === 'photographer' ? 'border-primary-500' : ''}`}
           onClick={() => setForm({ ...form, requested_role: 'photographer' })}>
           <h3 className="font-semibold mb-2">Photographer</h3>
-          <ul className="text-sm text-gray-400 space-y-1">
+          <ul className="text-sm text-slate-500 space-y-1">
             <li>✅ View private events</li>
             <li>✅ Like & comment photos</li>
             <li>✅ Upload to assigned events</li>
@@ -114,7 +114,7 @@ export default function RequestAccessPage() {
       <div className="card p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Reason for request</label>
+            <label className="block text-sm font-medium text-slate-600 mb-2">Reason for request</label>
             <textarea value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })}
               className="input resize-none h-28"
               placeholder="Tell the admin why you need this access, your role in the club, etc." required />

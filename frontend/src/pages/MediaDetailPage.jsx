@@ -21,17 +21,17 @@ function DeleteConfirmModal({ onConfirm, onCancel, deleting }) {
               <AlertTriangle size={20} className="text-red-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Delete media?</h3>
-              <p className="text-sm text-gray-400 mt-0.5">This action cannot be undone.</p>
+              <h3 className="font-semibold text-slate-800">Delete media?</h3>
+              <p className="text-sm text-slate-500 mt-0.5">This action cannot be undone.</p>
             </div>
           </div>
-          <button onClick={onCancel} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={onCancel} className="text-gray-500 hover:text-slate-900 transition-colors">
             <X size={18} />
           </button>
         </div>
         <div className="flex gap-3 pt-1">
           <button onClick={onCancel} disabled={deleting}
-            className="flex-1 btn bg-dark-700 hover:bg-dark-600 text-gray-300 py-2 rounded-lg text-sm transition-colors">
+            className="flex-1 btn bg-dark-700 hover:bg-dark-600 text-slate-600 py-2 rounded-lg text-sm transition-colors">
             Cancel
           </button>
           <button onClick={onConfirm} disabled={deleting}
@@ -227,16 +227,16 @@ export default function MediaDetailPage() {
   const actionRow = (
     <div className="flex items-center gap-1 border-b border-dark-600 px-2 py-2.5">
       <button onClick={handleLike}
-        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-dark-700 ${media.is_liked ? 'text-red-400' : 'text-gray-300 hover:text-red-400'}`}>
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all hover:bg-dark-700 ${media.is_liked ? 'text-red-400' : 'text-slate-600 hover:text-red-400'}`}>
         <Heart size={18} fill={media.is_liked ? 'currentColor' : 'none'} strokeWidth={media.is_liked ? 0 : 1.75} />
         <span>{media.like_count || 0}</span>
       </button>
-      <span className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-gray-400">
+      <span className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-slate-500">
         <MessageCircle size={18} strokeWidth={1.75} /> {media.comments?.length || 0}
       </span>
       <div className="flex-1" />
       <button onClick={handleFav} title="Favourite"
-        className={`icon-btn ${media.is_favourited ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}>
+        className={`icon-btn ${media.is_favourited ? 'text-yellow-400' : 'text-slate-500 hover:text-yellow-400'}`}>
         <Bookmark size={18} fill={media.is_favourited ? 'currentColor' : 'none'} strokeWidth={media.is_favourited ? 0 : 1.75} />
       </button>
       <button onClick={handleDownload} title="Download" className="icon-btn"><Download size={18} strokeWidth={1.75} /></button>
@@ -252,14 +252,14 @@ export default function MediaDetailPage() {
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5 min-h-0">
       {/* Metadata */}
       <div>
-        <Link to={`/events/${media.event_id}`} className="text-sm font-semibold text-primary-400 hover:text-primary-300 transition-colors">
+        <Link to={`/events/${media.event_id}`} className="text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors">
           {media.event_name || 'Event'}
         </Link>
-        <p className="text-sm text-gray-400 mt-1">By <span className="text-white">{media.uploader_name}</span></p>
+        <p className="text-sm text-slate-500 mt-1">By <span className="text-slate-800">{media.uploader_name}</span></p>
         <p className="text-xs text-gray-500 mt-0.5">
           {formatDistanceToNow(new Date(media.created_at), { addSuffix: true })}
         </p>
-        {media.caption && <p className="text-sm text-gray-300 mt-3 italic">"{media.caption}"</p>}
+        {media.caption && <p className="text-sm text-slate-600 mt-3 italic">"{media.caption}"</p>}
       </div>
 
       {/* AI tags */}
@@ -269,7 +269,7 @@ export default function MediaDetailPage() {
           <div className="flex flex-wrap gap-2">
             {media.ai_tags.map(tag => (
               <Link key={tag} to={`/search?tags=${tag}`}
-                className="badge bg-dark-700 text-gray-300 hover:bg-primary-600/20 hover:text-primary-400 transition-all cursor-pointer">
+                className="badge bg-dark-700 text-slate-600 hover:bg-primary-600/20 hover:text-primary-600 transition-all cursor-pointer">
                 #{tag}
               </Link>
             ))}
@@ -283,8 +283,8 @@ export default function MediaDetailPage() {
           <p className="section-label mb-2 flex items-center gap-1"><Tag size={11} /> Tagged people</p>
           <div className="flex flex-wrap gap-2">
             {media.tags.map(t => (
-              <span key={t.id} className="flex items-center gap-1.5 badge bg-dark-700 text-gray-300 pl-1 pr-2.5 py-1">
-                <span className="w-5 h-5 rounded-full bg-primary-600 flex items-center justify-center text-[10px]">{initial(t.tagged_user?.username)}</span>
+              <span key={t.id} className="flex items-center gap-1.5 badge bg-dark-700 text-slate-600 pl-1 pr-2.5 py-1">
+                <span className="w-5 h-5 rounded-full bg-primary-600 flex items-center justify-center text-[10px] text-white">{initial(t.tagged_user?.username)}</span>
                 @{t.tagged_user?.username}
               </span>
             ))}
@@ -304,7 +304,7 @@ export default function MediaDetailPage() {
                 {tagResults.map(u => (
                   <button key={u.id} onClick={() => handleTag(u.id)}
                     className="w-full flex items-center gap-3 px-3 py-2 hover:bg-dark-700 text-left">
-                    <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-xs">{initial(u.username)}</div>
+                    <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-xs text-white">{initial(u.username)}</div>
                     <span className="text-sm">@{u.username}</span>
                   </button>
                 ))}
@@ -320,12 +320,12 @@ export default function MediaDetailPage() {
         <div className="space-y-3">
           {media.comments?.map(c => (
             <div key={c.id} className="flex items-start gap-2 group">
-              <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-xs flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-primary-600 flex items-center justify-center text-xs flex-shrink-0 text-white">
                 {initial(c.users?.username)}
               </div>
               <div className="flex-1 min-w-0">
-                <span className="text-xs font-medium text-primary-400">@{c.users?.username} </span>
-                <span className="text-sm text-gray-300">{c.content}</span>
+                <span className="text-xs font-medium text-primary-600">@{c.users?.username} </span>
+                <span className="text-sm text-slate-600">{c.content}</span>
                 <p className="text-xs text-gray-600 mt-0.5">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</p>
               </div>
               {user && (user.id === c.user_id || user.role === 'admin') && (
@@ -372,7 +372,7 @@ export default function MediaDetailPage() {
             <span className="truncate">{media.event_name || 'Event'}</span>
           </Link>
           {currentIndex >= 0 && (
-            <span className="hidden sm:block text-xs text-gray-300">{currentIndex + 1} / {eventMedia.length}</span>
+            <span className="hidden sm:block text-xs text-gray-200">{currentIndex + 1} / {eventMedia.length}</span>
           )}
           <button onClick={() => navigate(media.event_id ? `/events/${media.event_id}` : '/')}
             className="icon-btn text-gray-200 hover:text-white bg-black/30" title="Close (Esc)">
@@ -429,7 +429,7 @@ export default function MediaDetailPage() {
 
         {/* Mobile: open details drawer */}
         <button onClick={() => setDrawerOpen(true)}
-          className="lg:hidden flex items-center justify-center gap-1.5 text-sm text-gray-300 bg-dark-800 border-t border-dark-600 py-2.5">
+          className="lg:hidden flex items-center justify-center gap-1.5 text-sm text-slate-600 bg-dark-800 border-t border-dark-600 py-2.5">
           <ChevronUp size={16} /> Details & comments
         </button>
       </div>

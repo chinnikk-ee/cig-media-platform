@@ -25,17 +25,17 @@ function DeleteConfirmModal({ title, description, onConfirm, onCancel, deleting 
               <AlertTriangle size={20} className="text-red-400" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">{title}</h3>
-              <p className="text-sm text-gray-400 mt-0.5">{description}</p>
+              <h3 className="font-semibold text-slate-800">{title}</h3>
+              <p className="text-sm text-slate-500 mt-0.5">{description}</p>
             </div>
           </div>
-          <button onClick={onCancel} disabled={deleting} className="text-gray-500 hover:text-white transition-colors">
+          <button onClick={onCancel} disabled={deleting} className="text-gray-500 hover:text-slate-900 transition-colors">
             <X size={18} />
           </button>
         </div>
         <div className="flex gap-3 pt-1">
           <button onClick={onCancel} disabled={deleting}
-            className="flex-1 btn bg-dark-700 hover:bg-dark-600 text-gray-300 py-2 rounded-lg text-sm transition-colors">
+            className="flex-1 btn bg-dark-700 hover:bg-dark-600 text-slate-600 py-2 rounded-lg text-sm transition-colors">
             Cancel
           </button>
           <button onClick={onConfirm} disabled={deleting}
@@ -279,8 +279,8 @@ export default function EventDetailPage() {
         className={`sticky top-0 z-20 transition-all duration-200 ${isSticky ? 'bg-dark-900/95 backdrop-blur-md border-b border-dark-700 shadow-lg' : 'bg-dark-900/80'}`}
       >
         <div className="px-4 md:px-6 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3 text-sm text-gray-400 min-w-0">
-            <span className="font-semibold text-white truncate">{event.name}</span>
+          <div className="flex items-center gap-3 text-sm text-slate-500 min-w-0">
+            <span className="font-semibold text-slate-800 truncate">{event.name}</span>
             <span className="flex items-center gap-1">
               <Camera size={12} />
               {(() => {
@@ -319,7 +319,7 @@ export default function EventDetailPage() {
           <div className="px-4 md:px-6 pb-3">
             <div className="inline-block p-3 bg-white rounded-xl">
               <img src={qrDataUrl} alt="QR Code" className="w-32 h-32" />
-              <p className="text-dark-900 text-xs text-center mt-1.5 font-medium">Scan to open album</p>
+              <p className="text-slate-700 text-xs text-center mt-1.5 font-medium">Scan to open album</p>
             </div>
           </div>
         )}
@@ -328,7 +328,7 @@ export default function EventDetailPage() {
       {/* ── Content area ── */}
       <div className="px-4 md:px-6 pt-5 pb-10 space-y-5">
         {event.description && (
-          <p className="text-gray-400 text-sm leading-relaxed max-w-2xl">{event.description}</p>
+          <p className="text-slate-500 text-sm leading-relaxed max-w-2xl">{event.description}</p>
         )}
 
         {/* AI tag chip rail */}
@@ -338,12 +338,12 @@ export default function EventDetailPage() {
               <Hash size={11} /> Tags
             </span>
             <button onClick={() => setActiveTag(null)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${!activeTag ? 'bg-primary-600 text-white' : 'bg-dark-700 text-gray-400 hover:bg-dark-600'}`}>
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${!activeTag ? 'bg-primary-600 text-white' : 'bg-dark-700 text-slate-600 hover:bg-dark-600'}`}>
               All
             </button>
             {allTags.map(tag => (
               <button key={tag} onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${activeTag === tag ? 'bg-primary-600 text-white' : 'bg-dark-700 text-gray-400 hover:bg-dark-600 border border-dark-600'}`}>
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${activeTag === tag ? 'bg-primary-600 text-white' : 'bg-dark-700 text-slate-600 hover:bg-dark-600 border border-dark-600'}`}>
                 #{tag}
               </button>
             ))}
@@ -374,7 +374,7 @@ export default function EventDetailPage() {
                       </button>
                     )}
                     <span className="text-xs text-gray-500">{selected.size} selected</span>
-                    <button onClick={exitSelectMode} className="text-xs text-gray-500 hover:text-white transition-colors">Cancel</button>
+                    <button onClick={exitSelectMode} className="text-xs text-gray-500 hover:text-slate-900 transition-colors">Cancel</button>
                   </div>
                 ) : (
                   <button onClick={() => setSelectMode(true)} className="btn-secondary text-xs py-1.5 gap-1.5">
@@ -385,11 +385,11 @@ export default function EventDetailPage() {
               {/* Grid mode toggle */}
               <div className="flex border border-dark-600 rounded-lg overflow-hidden bg-dark-800">
                 <button onClick={() => setGridMode('square')}
-                  className={`px-2.5 py-1.5 transition-colors ${gridMode === 'square' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-white'}`} title="Masonry grid">
+                  className={`px-2.5 py-1.5 transition-colors ${gridMode === 'square' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-slate-900'}`} title="Masonry grid">
                   <Grid size={14} />
                 </button>
                 <button onClick={() => setGridMode('justified')}
-                  className={`px-2.5 py-1.5 transition-colors ${gridMode === 'justified' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-white'}`} title="Justified grid">
+                  className={`px-2.5 py-1.5 transition-colors ${gridMode === 'justified' ? 'bg-primary-600 text-white' : 'text-gray-500 hover:text-slate-900'}`} title="Justified grid">
                   <LayoutTemplate size={14} />
                 </button>
               </div>

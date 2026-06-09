@@ -37,31 +37,31 @@ export default function RegisterPage() {
             <Camera size={28} />
           </div>
           <h1 className="text-2xl font-bold">Create Account</h1>
-          <p className="text-gray-400 mt-2">Join the CIG Media Platform</p>
+          <p className="text-slate-500 mt-2">Join the CIG Media Platform</p>
         </div>
 
         <div className="card p-8">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Username *</label>
+                <label className="block text-sm font-medium text-slate-600 mb-2">Username *</label>
                 <input type="text" value={form.username} onChange={set('username')} className="input" placeholder="john_doe" required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+                <label className="block text-sm font-medium text-slate-600 mb-2">Full Name</label>
                 <input type="text" value={form.full_name} onChange={set('full_name')} className="input" placeholder="John Doe" />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Email *</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Email *</label>
               <input type="email" value={form.email} onChange={set('email')} className="input" placeholder="you@example.com" required />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Password *</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Password *</label>
               <input type="password" value={form.password} onChange={set('password')} className="input" placeholder="Min 8 characters" required minLength={8} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password *</label>
+              <label className="block text-sm font-medium text-slate-600 mb-2">Confirm Password *</label>
               <input type="password" value={form.confirm_password} onChange={set('confirm_password')} className="input" placeholder="Re-enter your password" required minLength={8} />
               {form.confirm_password && form.password !== form.confirm_password && (
                 <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
@@ -69,17 +69,17 @@ export default function RegisterPage() {
             </div>
 
             {/* Role info box */}
-            <div className="bg-dark-700 rounded-lg p-3 text-sm text-gray-400">
-              You'll join as a <span className="text-white font-medium">Viewer</span>. To get upload or member access, request a role upgrade after registering.
+            <div className="bg-dark-700 rounded-lg p-3 text-sm text-slate-500">
+              You'll join as a <span className="text-slate-800 font-medium">Viewer</span>. To get upload or member access, request a role upgrade after registering.
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 mt-2">
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
-          <p className="text-center text-gray-400 text-sm mt-6">
+          <p className="text-center text-slate-500 text-sm mt-6">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-400 hover:text-primary-300 font-medium">Sign in</Link>
+            <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">Sign in</Link>
           </p>
         </div>
       </div>

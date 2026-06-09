@@ -78,7 +78,7 @@ export default function NotificationPanel({ onClose, mobile = false }) {
         ) : all.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center px-4">
             <Bell size={32} className="text-dark-500 mb-3" />
-            <p className="text-sm font-medium text-gray-400">All caught up</p>
+            <p className="text-sm font-medium text-slate-500">All caught up</p>
             <p className="text-xs text-gray-600 mt-1">No notifications yet</p>
           </div>
         ) : (
@@ -103,7 +103,7 @@ export default function NotificationPanel({ onClose, mobile = false }) {
                 </div>
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200 leading-snug">{n.message}</p>
+                  <p className="text-sm text-slate-600 leading-snug">{n.message}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                   </p>

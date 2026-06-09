@@ -12,12 +12,16 @@ export default {
           700: '#047857',
           900: '#064e3b',
         },
+        // Neutral "surface" scale. Names are kept (dark-900 … dark-500) so the
+        // existing markup needn't change, but the values are now a light,
+        // faintly jade-tinted ramp: 900 = page bg, 800 = cards, 700 = inputs/
+        // hover, 600 = borders, 500 = strong borders / scrollbar.
         dark: {
-          900: '#0c0c0e',
-          800: '#141417',
-          700: '#1e1e23',
-          600: '#28282f',
-          500: '#36363f',
+          900: '#f3f7f5',
+          800: '#ffffff',
+          700: '#eef3f0',
+          600: '#dde6e1',
+          500: '#c2cec8',
         },
       },
       fontFamily: {
