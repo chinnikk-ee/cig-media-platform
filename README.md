@@ -136,42 +136,93 @@ cig-platform/
 
 ## Local Setup
 
-### Prerequisites
+### Step 0 — Get API keys (required for both options)
 
-- Node.js 20+
-- Free accounts on: [Supabase](https://supabase.com), [Cloudinary](https://cloudinary.com), [AWS](https://aws.amazon.com) (Rekognition), [Imagga](https://imagga.com)
+You'll need free accounts on the following services before running anything:
 
----
-
-### Step 1 — Get API keys
-
-**Supabase**
+**Supabase** (database)
 1. Create a new project at supabase.com
 2. Go to **Settings → API** and copy: Project URL, `anon` public key, `service_role` key
 3. Go to **SQL Editor**, paste the full contents of `backend/src/config/schema.sql`, and run it
 
-**Cloudinary**
+**Cloudinary** (media storage)
 1. Sign up at cloudinary.com (free tier)
 2. From the dashboard copy: Cloud Name, API Key, API Secret
 
-**AWS Rekognition**
+**AWS Rekognition** (facial recognition)
 1. Create an IAM user with `rekognition:CompareFaces` and `rekognition:DetectFaces` permissions
 2. Generate an access key pair and note your region (e.g. `us-east-1`)
 
-**Imagga**
+**Imagga** (AI tagging)
 1. Sign up at imagga.com (free tier: 1000 images/month)
 2. From the dashboard copy your API Key and API Secret
 
 ---
 
-### Step 2 — Backend
+### Option A — Docker (Recommended)
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+**1. Create the environment file**
 
 ```bash
 cd backend
 cp .env.example .env   # Windows: copy .env.example .env
 ```
 
-Fill in `.env`:
+Fill in `backend/.env` with your keys from Step 0:
+
+```env
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
+
+JWT_SECRET=<any long random string>
+JWT_EXPIRES_IN=7d
+
+CLOUDINARY_CLOUD_NAME=xxx
+CLOUDINARY_API_KEY=xxx
+CLOUDINARY_API_SECRET=xxx
+
+IMAGGA_API_KEY=xxx
+IMAGGA_API_SECRET=xxx
+
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=xxx
+AWS_SECRET_ACCESS_KEY=xxx
+
+PORT=5000
+FRONTEND_URL=http://localhost
+NODE_ENV=production
+```
+
+**2. Start everything**
+
+```bash
+docker-compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost |
+| Backend API | http://localhost:5000 |
+
+To stop: `docker-compose down`
+
+---
+
+### Option B — Classic (Manual)
+
+**Prerequisites:** Node.js 20+
+
+**1. Create the environment file**
+
+```bash
+cd backend
+cp .env.example .env   # Windows: copy .env.example .env
+```
+
+Fill in `backend/.env` with your keys from Step 0:
 
 ```env
 SUPABASE_URL=https://xxxxx.supabase.co
@@ -197,16 +248,17 @@ FRONTEND_URL=http://localhost:5173
 NODE_ENV=development
 ```
 
+**2. Start the backend**
+
 ```bash
+cd backend
 npm install
 npm run dev
 ```
 
 Backend runs at `http://localhost:5000`.
 
----
-
-### Step 3 — Frontend
+**3. Start the frontend**
 
 In a new terminal:
 
@@ -217,16 +269,6 @@ npm run dev
 ```
 
 Frontend runs at `http://localhost:5173`.
-
----
-
-### Docker (optional)
-
-```bash
-docker-compose up
-```
-
-Starts backend on port 5000 and frontend on port 80.
 
 ---
 
@@ -276,26 +318,6 @@ Full DDL is in `backend/src/config/schema.sql`. Key tables:
 | `removed_users` | Tombstone for deleted accounts |
 
 **Views:** `media_with_counts` and `events_with_counts` pre-aggregate like/comment counts to avoid N+1 queries.
-
----
-
-## Deployment
-
-### Backend — Railway
-
-1. New Project → Deploy from GitHub
-2. Set root directory to `/backend`
-3. Add all environment variables from `.env`
-4. Railway assigns a public HTTPS URL
-
-### Frontend — Vercel
-
-1. New Project → Import from GitHub
-2. Set root directory to `/frontend`
-3. Add environment variable: `VITE_API_URL=<your Railway backend URL>`
-4. Vercel assigns a public URL
-
-Socket.io works over WSS on both platforms without additional configuration.
 
 ---
 
