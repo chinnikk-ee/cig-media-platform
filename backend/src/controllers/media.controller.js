@@ -5,7 +5,7 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { detectFaces, compareFaces, fetchImageBytes } = require('../utils/faceRecognition');
+const { detectFaces, detectLabels, compareFaces, fetchImageBytes } = require('../utils/faceRecognition');
 
 // Cloudinary's synchronous upload endpoint (upload_stream) is capped at 10MB on
 // this account. Larger files (e.g. videos) must use the chunked endpoint
@@ -161,13 +161,8 @@ const uploadMedia = async (req, res) => {
 const enrichMedia = async (media, file, uploadResult, io) => {
   const update = {};
 
-  // Imagga AI tags (falls back to the filename tags already stored on insert)
-  try {
-    const ai_tags = await getImaggaTags(uploadResult.secure_url);
-    if (ai_tags && ai_tags.length > 0) update.ai_tags = ai_tags;
-  } catch (_) { /* keep filename tags */ }
-
-  // Face detection (images only)
+  // Normalise the image once and reuse the bytes for both label and face
+  // detection (images only — videos keep their filename tags).
   let faces_detected = [];
   let imageBytes = null;
   if (uploadResult.resource_type === 'image') {
@@ -177,6 +172,25 @@ const enrichMedia = async (media, file, uploadResult, io) => {
         .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 90 })
         .toBuffer();
+    } catch (err) {
+      console.warn('Image normalisation failed:', err.message);
+    }
+  }
+
+  // AI tags via Rekognition DetectLabels (falls back to the filename tags
+  // already stored on insert).
+  if (imageBytes) {
+    try {
+      const ai_tags = await detectLabels(imageBytes);
+      if (ai_tags.length > 0) update.ai_tags = ai_tags;
+    } catch (err) {
+      console.warn('Label detection failed:', err.message); /* keep filename tags */
+    }
+  }
+
+  // Face detection (images only)
+  if (imageBytes) {
+    try {
       const faces = await detectFaces(imageBytes);
       faces_detected = faces.map((f) => f.BoundingBox);
       if (faces_detected.length > 0) update.faces_detected = faces_detected;
@@ -493,16 +507,6 @@ const runFaceMatchForNewMedia = async (media, mediaBytes, io) => {
 };
 
 // ─── HELPERS ─────────────────────────────────────────────────
-const getImaggaTags = async (imageUrl) => {
-  const { IMAGGA_API_KEY, IMAGGA_API_SECRET } = process.env;
-  if (!IMAGGA_API_KEY) return [];
-  const response = await axios.get('https://api.imagga.com/v2/tags', {
-    params: { image_url: imageUrl, limit: 10, threshold: 30 },
-    auth: { username: IMAGGA_API_KEY, password: IMAGGA_API_SECRET },
-  });
-  return response.data.result.tags.filter(t => t.confidence > 30).map(t => t.tag.en);
-};
-
 const getFilenameTags = (filename) => {
   const stopWords = new Set(['img', 'image', 'photo', 'pic', 'dsc', 'jpg', 'png', 'jpeg', 'webp', 'copy']);
   return path.basename(filename, path.extname(filename))

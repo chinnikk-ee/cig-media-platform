@@ -7,8 +7,11 @@ COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
 COPY . .
-COPY .env.production .env.production
-RUN npm run build
+
+# Build with an empty VITE_API_URL so the app uses relative paths (/api, same-origin
+# socket). nginx then proxies those to the backend container — a fully self-contained
+# local stack with no dependency on the remote Render backend.
+RUN echo "VITE_API_URL=" > .env.production && npm run build
 
 # Stage 2 — Serve with nginx
 FROM nginx:alpine

@@ -12,7 +12,9 @@ export const SocketProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    socketRef.current = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', { withCredentials: true });
+    // When VITE_API_URL is unset (e.g. local Docker), connect to the same origin
+    // so nginx proxies /socket.io to the backend container.
+    socketRef.current = io(import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin, { withCredentials: true });
     setSocket(socketRef.current);
 
     if (user) {

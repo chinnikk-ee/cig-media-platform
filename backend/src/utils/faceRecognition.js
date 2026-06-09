@@ -1,4 +1,4 @@
-const { CompareFacesCommand, DetectFacesCommand } = require('@aws-sdk/client-rekognition');
+const { CompareFacesCommand, DetectFacesCommand, DetectLabelsCommand } = require('@aws-sdk/client-rekognition');
 const sharp = require('sharp');
 const axios = require('axios');
 const rekognition = require('../config/rekognition');
@@ -28,6 +28,19 @@ const detectFaces = async (bytes) => {
   return out.FaceDetails || [];
 };
 
+// Detect content labels (objects, scenes, concepts) in an image (bytes).
+// Returns up to `maxLabels` lowercase label names at/above `minConfidence`.
+const detectLabels = async (bytes, { maxLabels = 10, minConfidence = 70 } = {}) => {
+  const out = await rekognition.send(
+    new DetectLabelsCommand({
+      Image: { Bytes: bytes },
+      MaxLabels: maxLabels,
+      MinConfidence: minConfidence,
+    })
+  );
+  return (out.Labels || []).map((l) => l.Name.toLowerCase());
+};
+
 // Compare a source face (e.g. a selfie) against every face in a target image.
 // Returns the highest similarity (0-100) of any matching face, or null if none match.
 const compareFaces = async (sourceBytes, targetBytes) => {
@@ -53,5 +66,6 @@ module.exports = {
   FACE_MATCH_THRESHOLD,
   fetchImageBytes,
   detectFaces,
+  detectLabels,
   compareFaces,
 };
