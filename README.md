@@ -1,6 +1,52 @@
-# CIG Event & Media Management Platform
+# CIG Platform
 
-A full-stack event media platform with AI tagging, facial recognition, real-time notifications, and cloud storage.
+A full-stack event media management platform for clubs and organizations to host, share, and discover photos and videos from events. Features AI-powered facial recognition, real-time notifications, role-based access control, and cloud-first media storage.
+
+---
+
+## Features
+
+### Event Management
+- Create events with name, date, location, category, and cover image
+- Per-event QR code generation for shareable album links
+- Public/private visibility control per event and per media item
+
+### Media Upload & Storage
+- Drag-and-drop bulk upload (up to 50 files per session)
+- Concurrent uploads with 4 parallel workers
+- Images auto-optimized via Cloudinary transformations
+- Video support up to 100 MB with chunked upload (6 MB chunks for files >9 MB)
+- All files stored in Cloudinary under `/cig-platform/{event_id}/`
+
+### AI / Machine Learning
+- **Facial Recognition** — Upload a selfie to find all photos of yourself across every event (AWS Rekognition, 85% similarity threshold)
+- **AI Auto-tagging** — Imagga API auto-tags every uploaded image for searchability
+- **Tag-based Search** — Query media by AI-generated tags
+
+### Social
+- Like, comment, and favourite any media item
+- Tag other users in photos
+- Watermarked downloads (club name + event name + user role overlaid via Sharp)
+- Real-time comments and notifications via Socket.io
+
+### Search & Discovery
+- Full-text search across event names, usernames, and AI tags
+- Date range filtering
+- Infinite scroll galleries with Masonry layout
+
+### Access Control
+| Role | Capabilities |
+|------|-------------|
+| **Admin** | Create/delete events, upload/delete any media, manage users, approve role requests |
+| **Photographer** | Upload to assigned events, delete own uploads, view all media |
+| **Member** | Like, comment, favourite, tag, download; no upload access |
+| **Viewer** | View public media only; can submit a role upgrade request |
+
+### Real-time (Socket.io)
+- Live comment broadcast to all viewers of a media item
+- Upload alerts pushed to everyone in an event room
+- Per-user notification stream for likes, comments, tags, and role decisions
+- Face scan progress events (`face_match_started`, `face_match_complete`)
 
 ---
 
@@ -8,95 +54,16 @@ A full-stack event media platform with AI tagging, facial recognition, real-time
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React + Vite + Tailwind CSS |
-| Backend | Node.js + Express |
+| Frontend | React 18 + Vite 5 + Tailwind CSS 3 |
+| Backend | Node.js + Express 4 |
 | Database | PostgreSQL via Supabase |
-| Storage | Cloudinary |
+| File Storage | Cloudinary |
+| Authentication | JWT (7-day expiry) |
+| Real-time | Socket.io 4 |
+| Facial Recognition | AWS Rekognition |
 | AI Tagging | Imagga API |
-| Real-time | Socket.io |
-| Auth | JWT |
-
----
-
-## Setup (Step by Step)
-
-### Step 1 — Get your API keys (all free)
-
-#### Supabase (Database)
-1. Go to https://supabase.com → Sign up → New Project
-2. Once created, go to **Settings → API**
-3. Copy: `Project URL`, `anon public key`, `service_role key`
-4. Go to **SQL Editor** → paste the entire contents of `backend/src/config/schema.sql` → Run
-
-#### Cloudinary (Image Storage)
-1. Go to https://cloudinary.com → Sign up (free)
-2. On dashboard, copy: `Cloud Name`, `API Key`, `API Secret`
-
-#### Imagga (AI Tagging)
-1. Go to https://imagga.com → Sign up (free tier: 1000 images/month)
-2. Go to dashboard → copy `API Key` and `API Secret`
-
----
-
-### Step 2 — Backend Setup
-
-```bash
-cd backend
-copy .env.example .env
-```
-
-Open `.env` and fill in all your keys from Step 1.
-
-```bash
-npm install
-npm run dev
-```
-
-Backend will run at http://localhost:5000
-
----
-
-### Step 3 — Frontend Setup
-
-Open a **new terminal window**:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend will run at http://localhost:5173
-
-Open http://localhost:5173 in your browser. You're live!
-
----
-
-## Features
-
-### Core
-- **Event Management** — Create, edit, delete events with cover images, QR codes, categories
-- **Media Upload** — Drag & drop, bulk upload up to 50 files, video support
-- **Access Control** — 4 roles: Admin, Photographer, Member, Viewer
-- **Public/Private** — Per-event and per-media visibility control
-
-### Social
-- Like, Comment, Share, Download (with watermark)
-- Add to Favourites
-- Tag friends in photos
-- Real-time notifications (Socket.io)
-
-### AI/ML
-- **Smart Tagging** — Imagga API auto-tags every uploaded photo
-- **Tag Search** — Search by AI-generated tags
-- **Facial Recognition** — Upload selfie → find all your photos across events
-- **Full-text Search** — By event name, username, tags, date range
-
-### Cloud
-- Cloudinary for image/video storage with auto-compression
-- QR code generation for album sharing
-- Watermarked downloads (club name + event name + role)
-- Infinite scroll gallery
+| Image Processing | Sharp + Canvas |
+| Deployment | Railway (backend) + Vercel (frontend) |
 
 ---
 
@@ -106,84 +73,240 @@ Open http://localhost:5173 in your browser. You're live!
 cig-platform/
 ├── backend/
 │   ├── src/
-│   │   ├── config/         # Supabase, Cloudinary, DB schema
-│   │   ├── controllers/    # Auth, Events, Media, Social, Search
-│   │   ├── middleware/     # JWT auth, file upload
-│   │   ├── routes/         # All API routes
-│   │   └── utils/          # Socket.io, notifications
-│   └── package.json
-└── frontend/
-    ├── src/
-    │   ├── components/     # Layout, MediaCard, NotificationPanel
-    │   ├── context/        # Auth, Socket contexts
-    │   ├── pages/          # All pages
-    │   └── utils/          # Axios API instance
-    └── package.json
+│   │   ├── server.js               # Express + Socket.io entry point
+│   │   ├── config/
+│   │   │   ├── schema.sql          # Full PostgreSQL DDL
+│   │   │   ├── supabase.js
+│   │   │   ├── cloudinary.js
+│   │   │   ├── rekognition.js
+│   │   │   └── migrations/
+│   │   ├── controllers/
+│   │   │   ├── auth.controller.js
+│   │   │   ├── event.controller.js
+│   │   │   ├── media.controller.js
+│   │   │   ├── social.controller.js
+│   │   │   ├── search.controller.js
+│   │   │   ├── notification.controller.js
+│   │   │   └── admin.controller.js
+│   │   ├── middleware/
+│   │   │   ├── auth.middleware.js   # JWT verify + optional auth
+│   │   │   ├── rbac.middleware.js   # Role-based permission checks
+│   │   │   └── upload.middleware.js # Multer + Cloudinary storage
+│   │   ├── routes/
+│   │   └── utils/
+│   │       ├── socket.js
+│   │       ├── faceRecognition.js
+│   │       └── notifications.js
+│   ├── Dockerfile
+│   └── .env.example
+│
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx                 # Routes + ProtectedRoute wrapper
+│   │   ├── context/
+│   │   │   ├── AuthContext.jsx
+│   │   │   └── SocketContext.jsx
+│   │   ├── components/
+│   │   │   ├── Layout.jsx
+│   │   │   ├── MediaCard.jsx
+│   │   │   ├── MasonryGrid.jsx
+│   │   │   ├── NotificationPanel.jsx
+│   │   │   └── Skeleton.jsx
+│   │   ├── pages/
+│   │   │   ├── HomePage.jsx
+│   │   │   ├── EventsPage.jsx
+│   │   │   ├── EventDetailPage.jsx
+│   │   │   ├── MediaDetailPage.jsx
+│   │   │   ├── UploadPage.jsx
+│   │   │   ├── MyPhotosPage.jsx
+│   │   │   ├── SearchPage.jsx
+│   │   │   ├── FavouritesPage.jsx
+│   │   │   ├── ProfilePage.jsx
+│   │   │   ├── AdminDashboard.jsx
+│   │   │   └── RequestAccessPage.jsx
+│   │   └── utils/
+│   │       └── api.js              # Axios instance with JWT interceptor
+│   ├── Dockerfile
+│   └── nginx.conf                  # Reverse proxy + React Router fallback
+│
+└── docker-compose.yml
 ```
 
 ---
 
-## API Endpoints
+## Local Setup
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/register | Register user |
-| POST | /api/auth/login | Login |
-| GET | /api/events | List events |
-| POST | /api/events | Create event |
-| GET | /api/events/:id/media | Get event media |
-| POST | /api/media/upload | Upload files |
-| GET | /api/media/:id/download | Download with watermark |
-| POST | /api/media/selfie | Upload selfie for face recognition |
-| GET | /api/media/my-photos | Get face-matched photos |
-| POST | /api/social/like | Like/unlike |
-| POST | /api/social/comment | Add comment |
-| POST | /api/social/favourite | Toggle favourite |
-| POST | /api/social/tag | Tag user in photo |
-| GET | /api/search | Search everything |
-| GET | /api/notifications | Get notifications |
+### Prerequisites
+
+- Node.js 20+
+- Free accounts on: [Supabase](https://supabase.com), [Cloudinary](https://cloudinary.com), [AWS](https://aws.amazon.com) (Rekognition), [Imagga](https://imagga.com)
+
+---
+
+### Step 1 — Get API keys
+
+**Supabase**
+1. Create a new project at supabase.com
+2. Go to **Settings → API** and copy: Project URL, `anon` public key, `service_role` key
+3. Go to **SQL Editor**, paste the full contents of `backend/src/config/schema.sql`, and run it
+
+**Cloudinary**
+1. Sign up at cloudinary.com (free tier)
+2. From the dashboard copy: Cloud Name, API Key, API Secret
+
+**AWS Rekognition**
+1. Create an IAM user with `rekognition:CompareFaces` and `rekognition:DetectFaces` permissions
+2. Generate an access key pair and note your region (e.g. `us-east-1`)
+
+**Imagga**
+1. Sign up at imagga.com (free tier: 1000 images/month)
+2. From the dashboard copy your API Key and API Secret
+
+---
+
+### Step 2 — Backend
+
+```bash
+cd backend
+cp .env.example .env   # Windows: copy .env.example .env
+```
+
+Fill in `.env`:
+
+```env
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
+
+JWT_SECRET=<any long random string>
+JWT_EXPIRES_IN=7d
+
+CLOUDINARY_CLOUD_NAME=xxx
+CLOUDINARY_API_KEY=xxx
+CLOUDINARY_API_SECRET=xxx
+
+IMAGGA_API_KEY=xxx
+IMAGGA_API_SECRET=xxx
+
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=xxx
+AWS_SECRET_ACCESS_KEY=xxx
+
+PORT=5000
+FRONTEND_URL=http://localhost:5173
+NODE_ENV=development
+```
+
+```bash
+npm install
+npm run dev
+```
+
+Backend runs at `http://localhost:5000`.
+
+---
+
+### Step 3 — Frontend
+
+In a new terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend runs at `http://localhost:5173`.
+
+---
+
+### Docker (optional)
+
+```bash
+docker-compose up
+```
+
+Starts backend on port 5000 and frontend on port 80.
+
+---
+
+## API Reference
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/auth/register` | — | Create account |
+| POST | `/api/auth/login` | — | Login, returns JWT |
+| GET | `/api/auth/profile` | JWT | Get current user |
+| GET | `/api/events` | Optional | List events |
+| POST | `/api/events` | Admin | Create event |
+| GET | `/api/events/:id/media` | Optional | Get media for event |
+| POST | `/api/media/upload` | Photographer/Admin | Upload files |
+| GET | `/api/media/:id/download` | JWT | Download with watermark |
+| POST | `/api/media/selfie` | JWT | Upload selfie, trigger face scan |
+| GET | `/api/media/my-photos` | JWT | Get face-matched photos |
+| DELETE | `/api/media/:id` | Owner/Admin | Delete media |
+| POST | `/api/social/like` | JWT | Toggle like |
+| POST | `/api/social/comment` | JWT | Add comment |
+| POST | `/api/social/favourite` | JWT | Toggle favourite |
+| POST | `/api/social/tag` | JWT | Tag user in photo |
+| GET | `/api/search` | Optional | Search media and events |
+| GET | `/api/notifications` | JWT | Get notifications |
+| GET | `/api/admin/users` | Admin | List all users |
+| GET | `/api/admin/role-requests` | Admin | List pending role requests |
+| POST | `/api/admin/role-requests/:id` | Admin | Approve or deny request |
 
 ---
 
 ## Database Schema
 
-See `backend/src/config/schema.sql` for the complete schema with:
-- `users` — roles, selfie for face recognition
-- `events` — with QR code, categories
-- `media` — AI tags, face data, download count
-- `likes`, `comments`, `favourites`, `media_tags`
-- `notifications` — real-time notification log
-- `face_matches` — facial recognition results
-- Views: `media_with_counts`, `events_with_counts`
+Full DDL is in `backend/src/config/schema.sql`. Key tables:
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Accounts, roles, avatar, selfie URL, face descriptor (JSONB) |
+| `events` | Event metadata, QR code, visibility, cover image |
+| `media` | Cloudinary URL/public_id, media type, AI tags (TEXT[]), face data, download count |
+| `likes` | User ↔ media junction |
+| `comments` | Comments with timestamps |
+| `favourites` | User ↔ media junction |
+| `media_tags` | User tagging in photos |
+| `notifications` | Notification log for real-time delivery |
+| `face_matches` | Rekognition results (user ↔ media, similarity score) |
+| `role_requests` | Viewer upgrade requests |
+| `removed_users` | Tombstone for deleted accounts |
+
+**Views:** `media_with_counts` and `events_with_counts` pre-aggregate like/comment counts to avoid N+1 queries.
 
 ---
 
 ## Deployment
 
-### Deploy Backend (Railway)
-1. Go to https://railway.app → New Project → Deploy from GitHub
-2. Select your repo → set root to `/backend`
-3. Add all environment variables from `.env`
-4. Done — Railway gives you a public URL
+### Backend — Railway
 
-### Deploy Frontend (Vercel)
-1. Go to https://vercel.com → New Project → Import from GitHub
-2. Set root to `/frontend`
-3. Add env variable: `VITE_API_URL=your_railway_backend_url`
-4. Done — Vercel gives you a public URL
+1. New Project → Deploy from GitHub
+2. Set root directory to `/backend`
+3. Add all environment variables from `.env`
+4. Railway assigns a public HTTPS URL
+
+### Frontend — Vercel
+
+1. New Project → Import from GitHub
+2. Set root directory to `/frontend`
+3. Add environment variable: `VITE_API_URL=<your Railway backend URL>`
+4. Vercel assigns a public URL
+
+Socket.io works over WSS on both platforms without additional configuration.
 
 ---
 
-## Evaluation Criteria Coverage
+## Key Implementation Notes
 
-| Criteria | Implementation |
-|----------|---------------|
-| UI/UX (15%) | Dark theme, responsive, infinite scroll, drag-drop |
-| Backend APIs (15%) | Express REST API, all CRUD operations |
-| Auth & Access Control (10%) | JWT, 4 roles, public/private media |
-| Cloud Integration (15%) | Cloudinary storage + Imagga AI |
-| Media Management (15%) | Upload, compress, watermark, download |
-| AI/ML Features (15%) | Auto-tagging, search by tags, face recognition |
-| Real-time Notifications (5%) | Socket.io, live comments |
-| Code Quality (5%) | Modular structure, controllers, middleware |
-| Innovation/Bonus (5%) | QR sharing, infinite scroll, AI captions |
+**Large file uploads** — files under 9 MB use Cloudinary's stream upload; files 9 MB and above use `upload_large` with 6 MB chunks. Temp files are cleaned up after chunked uploads complete.
+
+**Facial recognition flow** — user uploads selfie → Rekognition detects and stores face descriptor → async job compares descriptor against all event photos at 85% threshold → matches stored in `face_matches` → Socket.io notifies client when complete.
+
+**Watermarked downloads** — Sharp composites the club name, event name, and user role as a text overlay onto the image server-side before streaming it to the client.
+
+**JWT flow** — token stored in `localStorage`, attached to every request via Axios interceptor. A 401 response (except on `/login` and `/register`) auto-redirects to the login page.
+
+**Pagination** — backend uses SQL `LIMIT`/`OFFSET`; frontend uses `react-infinite-scroll-component` with a Masonry grid layout.
