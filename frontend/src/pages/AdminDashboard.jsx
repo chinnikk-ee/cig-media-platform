@@ -287,7 +287,7 @@ export default function AdminDashboard() {
               { icon: ShieldCheck, label: 'Pending Requests', value: stats?.pendingRequests ?? '—', color: 'text-yellow-400', bg: 'bg-yellow-500/10', urgent: stats?.pendingRequests > 0 },
               { icon: UserPlus, label: 'New Users This Week', value: stats?.newUsersThisWeek ?? '—', color: 'text-green-400', bg: 'bg-green-500/10' },
               { icon: HardDrive, label: 'Storage Used', value: (() => { const mb = stats?.storageMB; if (mb == null) return '—'; if (mb === 0) return 'Empty'; if (mb >= 1024) return `${(mb/1024).toFixed(1)} GB`; if (mb < 1) return `${Math.round(mb * 1024)} KB`; return `${mb} MB`; })(), color: 'text-blue-400', bg: 'bg-blue-500/10' },
-              { icon: Flag, label: 'Total Media', value: stats?.totalMedia ?? '—', color: 'text-purple-400', bg: 'bg-purple-500/10' },
+              { icon: Flag, label: 'Total Media', value: stats?.totalMedia ?? '—', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
             ].map(({ icon: Icon, label, value, color, bg, urgent }) => (
               <div key={label} className={`rounded-xl border p-4 flex items-center gap-3 ${urgent ? 'border-yellow-500/40 bg-yellow-500/5' : 'border-dark-600 card'}`}>
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${bg}`}>
